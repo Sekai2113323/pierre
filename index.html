@@ -1,398 +1,673 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PFC Café</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Puissance 4 — Astralis</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    :root {
+      --amber:   #e8920a;
+      --amber2:  #f5b842;
+      --dark:    #1a0e05;
+      --darker:  #0d0800;
+      --surface: rgba(15, 8, 2, 0.82);
+      --surface2: rgba(25, 14, 4, 0.9);
+      --border:  rgba(232, 146, 10, 0.35);
+      --border2: rgba(232, 146, 10, 0.6);
+      --text:    #f0dfc0;
+      --muted:   #8a6a40;
+      --red:     #e85555;
+      --yellow:  #f5b842;
+      --font-title: 'Cinzel', serif;
+      --font-body:  'Lato', sans-serif;
+    }
 
-<style>
-:root{
-  --bg:#f4efe6;
-  --card:#fffaf3;
-  --border:#e2d7c6;
-  --brown:#6b4f3a;
-  --brown-dark:#3e2d20;
-  --cream:#fff4e1;
-  --accent:#c08a5d;
-}
+    html, body {
+      min-height: 100vh;
+      font-family: var(--font-body);
+      color: var(--text);
+      overflow-x: hidden;
+    }
 
-*{margin:0;padding:0;box-sizing:border-box;}
+    /* ── BG CAFÉ ── */
+    body {
+      background:
+        radial-gradient(ellipse at 70% 40%, rgba(180, 80, 10, 0.25) 0%, transparent 60%),
+        radial-gradient(ellipse at 20% 80%, rgba(120, 50, 5, 0.3) 0%, transparent 50%),
+        linear-gradient(160deg, #2a1205 0%, #1a0c04 40%, #0d0600 100%);
+      min-height: 100vh;
+    }
 
-body {
-  background: url('file:///C:/Users/paoli/Downloads/anime-coffee-shop-illustration.jpg') no-repeat center center fixed;
-  background-size: cover;
-  color: var(--brown-dark);
-  font-family: 'Outfit', sans-serif;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
+    /* Particules lumineuses */
+    .particles { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .particle {
+      position: absolute;
+      width: 3px; height: 3px;
+      border-radius: 50%;
+      background: var(--amber2);
+      opacity: 0;
+      animation: float var(--dur) var(--delay) infinite ease-in-out;
+    }
+    @keyframes float {
+      0%   { opacity: 0; transform: translateY(100vh) translateX(0) scale(0.5); }
+      20%  { opacity: 0.6; }
+      80%  { opacity: 0.3; }
+      100% { opacity: 0; transform: translateY(-10vh) translateX(var(--drift)) scale(1.5); }
+    }
 
-body::before{
-  content:"";
-  position:fixed;
-  inset:0;
-  background:radial-gradient(circle at 50% 0%, rgba(0,0,0,0.05), transparent 60%);
-  pointer-events:none;
-}
+    /* ── LAYOUT ── */
+    #wrap {
+      position: relative; z-index: 1;
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 48px;
+    }
 
-h1{
-  font-family:'Bebas Neue';
-  font-size:clamp(2.5rem,6vw,4rem);
-  letter-spacing:.08em;
-  color:var(--brown-dark);
-}
+    /* ── HEADER (style visual novel top bar) ── */
+    #vn-header {
+      background: rgba(10, 5, 1, 0.75);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 10px 32px 12px;
+      text-align: center;
+      margin-bottom: 32px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 30px rgba(232, 146, 10, 0.15), inset 0 1px 0 rgba(245, 184, 66, 0.1);
+    }
+    #vn-header h1 {
+      font-family: var(--font-title);
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      font-weight: 900;
+      letter-spacing: .18em;
+      color: var(--amber);
+      text-shadow: 0 0 20px rgba(232,146,10,0.5);
+    }
+    #vn-header p {
+      font-size: .72rem;
+      letter-spacing: .2em;
+      color: var(--muted);
+      margin-top: 2px;
+      font-weight: 300;
+    }
 
-.sub{
-  font-size:.8rem;
-  letter-spacing:.3em;
-  text-transform:uppercase;
-  color:#9a8f82;
-  margin-bottom:2rem;
-}
+    /* ── APP CONTAINER ── */
+    #app { width: 100%; max-width: 520px; }
 
-/* lobby */
-#lobby{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:18px;
-  padding:2rem;
-  width:100%;
-  max-width:420px;
-  text-align:center;
-  box-shadow:0 10px 30px rgba(0,0,0,0.05);
-}
+    .screen { display: none; flex-direction: column; gap: 0; }
+    .screen.active { display: flex; }
 
-.lobby-title{
-  font-family:'Bebas Neue';
-  font-size:1.6rem;
-  margin-bottom:1.4rem;
-  color:var(--brown);
-}
+    /* ── VN DIALOGUE BOX (menu = dialogue box style) ── */
+    .vn-box {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 28px 28px 24px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(245,184,66,0.08);
+      position: relative;
+    }
+    .vn-box::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--amber), transparent);
+    }
 
-.room-input{
-  width:100%;
-  padding:.9rem;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:var(--cream);
-  text-align:center;
-  font-size:1rem;
-  margin-bottom:1rem;
-}
+    .vn-label {
+      display: inline-block;
+      background: var(--amber);
+      color: var(--darker);
+      font-family: var(--font-title);
+      font-weight: 700;
+      font-size: .72rem;
+      letter-spacing: .15em;
+      padding: 3px 12px;
+      border-radius: 4px;
+      margin-bottom: 14px;
+    }
 
-.btn-main{
-  width:100%;
-  padding:.9rem;
-  border:none;
-  border-radius:10px;
-  font-family:'Bebas Neue';
-  font-size:1.1rem;
-  letter-spacing:.1em;
-  cursor:pointer;
-  margin-bottom:.7rem;
-  background:var(--brown);
-  color:#fff;
-  transition:.2s;
-}
+    /* ── INPUTS ── */
+    .inp {
+      width: 100%;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-bottom: 2px solid var(--amber);
+      border-radius: 6px 6px 0 0;
+      color: var(--text);
+      padding: 13px 16px;
+      font-family: var(--font-body);
+      font-size: .95rem;
+      outline: none;
+      transition: border-color .2s, background .2s;
+    }
+    .inp:focus { border-bottom-color: var(--amber2); background: rgba(0,0,0,0.55); }
+    .inp::placeholder { color: var(--muted); }
 
-.btn-main:hover{background:var(--brown-dark);}
+    .inp-row { display: flex; gap: 10px; margin-top: 14px; }
+    .inp-row .inp { flex: 1; letter-spacing: .15em; }
 
-.or-sep{
-  color:#b7a99a;
-  font-size:.75rem;
-  margin:.4rem 0 1rem;
-}
+    /* ── BUTTONS ── */
+    .btn {
+      border: 1px solid var(--border2);
+      background: rgba(0,0,0,0.3);
+      color: var(--amber2);
+      font-family: var(--font-title);
+      font-weight: 700;
+      font-size: .78rem;
+      letter-spacing: .12em;
+      padding: 13px 22px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+    .btn::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, rgba(232,146,10,0.0), rgba(232,146,10,0.12));
+      opacity: 0; transition: opacity .2s;
+    }
+    .btn:hover { border-color: var(--amber); background: rgba(30,15,2,0.6); box-shadow: 0 0 18px rgba(232,146,10,0.25); }
+    .btn:hover::after { opacity: 1; }
+    .btn.primary { background: rgba(180,90,5,0.35); border-color: var(--amber); }
+    .btn.primary:hover { background: rgba(200,110,10,0.5); box-shadow: 0 0 25px rgba(232,146,10,0.4); }
+    .btn.danger { border-color: rgba(220,80,80,0.5); color: #e88; }
+    .btn.danger:hover { background: rgba(80,10,10,0.4); box-shadow: 0 0 18px rgba(220,80,80,0.2); }
+    .btn.full { width: 100%; }
 
-/* GAME */
-#game{display:none;width:100%;max-width:860px;}
+    .btn-group { display: flex; gap: 10px; margin-top: 14px; }
 
-.room-info{
-  text-align:center;
-  margin-bottom:1.5rem;
-  display:flex;
-  gap:1rem;
-  justify-content:center;
-  flex-wrap:wrap;
-}
+    .error-msg {
+      color: #e88; font-size: .82rem; text-align: center;
+      min-height: 20px; margin-top: 10px;
+      animation: shake .4s ease; font-style: italic;
+    }
 
-.room-code{
-  background:var(--cream);
-  border:1px solid var(--border);
-  padding:.3rem 1rem;
-  border-radius:6px;
-  font-family:'Bebas Neue';
-  letter-spacing:.2em;
-  color:var(--brown);
-  cursor:pointer;
-}
+    /* ── LOBBY ── */
+    #screen-lobby .vn-box { text-align: center; }
+    .code-display {
+      font-family: var(--font-title);
+      font-size: 2.6rem;
+      font-weight: 900;
+      letter-spacing: .5em;
+      color: var(--amber);
+      text-shadow: 0 0 20px rgba(232,146,10,0.6);
+      padding: 6px 0 18px;
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%,100% { text-shadow: 0 0 15px rgba(232,146,10,0.4); }
+      50%      { text-shadow: 0 0 30px rgba(232,146,10,0.8), 0 0 60px rgba(232,146,10,0.3); }
+    }
+    .lobby-hint { color: var(--muted); font-size: .8rem; margin-bottom: 22px; font-style: italic; }
+    .players-vs { display: flex; justify-content: center; align-items: center; gap: 28px; }
+    .p-slot { text-align: center; }
+    .p-avatar {
+      width: 54px; height: 54px; border-radius: 50%;
+      margin: 0 auto 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-family: var(--font-title); font-weight: 700; font-size: .9rem;
+      border: 2px solid var(--border2);
+      transition: all .4s;
+    }
+    .p-avatar.filled { box-shadow: 0 0 18px rgba(232,146,10,0.35); }
+    .p-name { font-size: .78rem; color: var(--muted); max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .p-name.active { color: var(--amber2); }
+    .vs-text { font-family: var(--font-title); color: var(--muted); font-size: 1.1rem; }
+    .waiting-txt { color: var(--muted); font-size: .75rem; margin-top: 18px; font-style: italic; animation: blink 2s infinite; }
 
-.status-pill{
-  background:var(--cream);
-  border:1px solid var(--border);
-  border-radius:40px;
-  padding:.3rem .9rem;
-  font-size:.75rem;
-  color:#9a8f82;
-}
+    /* ── GAME ── */
+    #screen-game { gap: 12px; }
 
-.status-pill.online{
-  color:var(--brown);
-  border-color:var(--brown);
-}
+    .scorebar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 18px;
+      backdrop-filter: blur(8px);
+    }
+    .ptag { display: flex; align-items: center; gap: 9px; transition: opacity .3s; }
+    .ptag.dim { opacity: .3; }
+    .ptag-dot { width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0; }
+    .ptag-name { font-family: var(--font-title); font-size: .72rem; letter-spacing: .1em; }
 
-.arena{
-  display:grid;
-  grid-template-columns:1fr auto 1fr;
-  gap:1rem;
-}
+    #status-bar {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 18px;
+      text-align: center;
+      font-size: .82rem;
+      letter-spacing: .12em;
+      font-style: italic;
+      backdrop-filter: blur(8px);
+      min-height: 38px;
+      display: flex; align-items: center; justify-content: center;
+      transition: color .3s;
+    }
 
-.panel{
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:16px;
-  padding:1.3rem;
-}
+    /* ── BOARD ── */
+    #board-wrap {
+      background: rgba(5, 3, 1, 0.85);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow:
+        0 0 60px rgba(180, 80, 5, 0.2),
+        inset 0 0 30px rgba(0,0,0,0.6),
+        inset 0 1px 0 rgba(245,184,66,0.06);
+      backdrop-filter: blur(4px);
+    }
+    #drop-row { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; margin-bottom: 6px; padding: 0 1px; }
+    .drop-dot { height: 6px; border-radius: 3px; background: transparent; transition: background .15s; }
+    #board { display: grid; grid-template-columns: repeat(7,1fr); gap: 6px; }
 
-.pname{
-  font-family:'Bebas Neue';
-  letter-spacing:.08em;
-  color:var(--brown);
-}
+    .cell {
+      aspect-ratio: 1; border-radius: 50%;
+      background: rgba(20, 10, 2, 0.9);
+      border: 1px solid rgba(100,50,10,0.4);
+      cursor: pointer;
+      transition: all .15s;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.8);
+      position: relative;
+    }
+    .cell:hover { border-color: rgba(232,146,10,0.3); }
 
-.pscore{
-  font-size:2.5rem;
-  font-weight:700;
-  color:var(--brown-dark);
-}
+    .cell.p1 {
+      background: radial-gradient(circle at 35% 35%, #ff7060, #cc2020);
+      border-color: rgba(255,80,60,0.5);
+      box-shadow: 0 0 14px rgba(200,40,40,0.6), inset 0 -3px 6px rgba(0,0,0,0.4);
+      animation: drop-in .25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .cell.p2 {
+      background: radial-gradient(circle at 35% 35%, #ffe066, #d49a00);
+      border-color: rgba(245,184,66,0.5);
+      box-shadow: 0 0 14px rgba(200,150,0,0.6), inset 0 -3px 6px rgba(0,0,0,0.4);
+      animation: drop-in .25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .cell.win { animation: win-pulse .5s ease infinite alternate; }
 
-.cbtn{
-  background:var(--cream);
-  border:1px solid var(--border);
-  border-radius:8px;
-  padding:.7rem;
-  cursor:pointer;
-  transition:.15s;
-  width:100%;
-}
+    /* ── VN DIALOGUE at bottom of game ── */
+    #vn-dialogue {
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      padding: 0;
+      overflow: hidden;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 -4px 30px rgba(0,0,0,0.5);
+    }
+    #vn-dialogue .speaker-tag {
+      background: var(--amber);
+      color: var(--darker);
+      font-family: var(--font-title);
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .15em;
+      padding: 4px 14px;
+      display: inline-block;
+      border-radius: 0 0 8px 0;
+    }
+    #vn-dialogue .dialogue-text {
+      padding: 10px 18px 14px;
+      font-size: .9rem;
+      line-height: 1.6;
+      color: var(--text);
+      min-height: 56px;
+    }
 
-.cbtn:hover{background:#f0e6d8;}
+    #game-actions { display: flex; gap: 10px; }
 
-.center{
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  gap:.6rem;
-}
+    /* ── ANIMATIONS ── */
+    @keyframes drop-in  { 0%{transform:translateY(-40px) scale(.8);opacity:0} 100%{transform:translateY(0) scale(1);opacity:1} }
+    @keyframes win-pulse { from{filter:brightness(1) saturate(1)} to{filter:brightness(1.7) saturate(1.5)} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
 
-.vs{
-  font-family:'Bebas Neue';
-  font-size:1.6rem;
-  color:#b8a998;
-}
-
-.rem{font-size:2.5rem;opacity:0;transition:.3s;}
-.rem.show{opacity:1;}
-
-.rmsg{
-  font-family:'Bebas Neue';
-  color:var(--accent);
-  letter-spacing:.08em;
-  min-height:1.5rem;
-}
-
-.btn-leave{
-  background:transparent;
-  border:1px solid var(--border);
-  padding:.4rem 1rem;
-  border-radius:30px;
-  font-size:.75rem;
-  cursor:pointer;
-}
-
-.notif{
-  position:fixed;
-  top:1.5rem;
-  left:50%;
-  transform:translateX(-50%);
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:40px;
-  padding:.5rem 1.2rem;
-  color:var(--brown);
-  opacity:0;
-  transition:.3s;
-}
-.notif.show{opacity:1;}
-</style>
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--amber); border-radius: 2px; }
+  </style>
 </head>
-
 <body>
 
-<h1>PFC CAFÉ</h1>
-<p class="sub">Pierre · Feuille · Ciseaux</p>
+<!-- Particules flottantes -->
+<div class="particles" id="particles"></div>
 
-<div id="notif" class="notif"></div>
-
-<div id="lobby">
-  <div class="lobby-title">☕ Table libre</div>
-  <button class="btn-main" onclick="createRoom()">Créer une table</button>
-  <div class="or-sep">ou rejoindre</div>
-  <input class="room-input" id="codeInput" maxlength="6" placeholder="CODE" />
-  <button class="btn-main" onclick="joinRoom()">Rejoindre</button>
-</div>
-
-<div id="game">
-  <div class="room-info">
-    <span>Table :</span>
-    <span class="room-code" id="roomCodeDisplay">----</span>
-    <span class="status-pill" id="connStatus">En attente</span>
+<div id="wrap">
+  <!-- Header VN -->
+  <div id="vn-header">
+    <h1>PUISSANCE 4</h1>
+    <p>Espace communautaire · Astralis</p>
   </div>
 
-  <div class="arena">
+  <div id="app">
 
-    <div class="panel" id="myPanel">
-      <div class="pname">Vous</div>
-      <div class="pscore" id="myScore">0</div>
-      <div id="myChoices">
-        <button class="cbtn" onclick="pickChoice('pierre')">🪨 Pierre</button>
-        <button class="cbtn" onclick="pickChoice('feuille')">📄 Feuille</button>
-        <button class="cbtn" onclick="pickChoice('ciseaux')">✂️ Ciseaux</button>
+    <!-- ══ MENU ══ -->
+    <div id="screen-menu" class="screen active">
+      <div class="vn-box">
+        <span class="vn-label">REJOINDRE</span>
+        <input id="inp-name" class="inp" placeholder="Ton nom dans le serveur…" maxlength="16" autocomplete="off" />
+        <div class="btn-group">
+          <button class="btn primary full" onclick="createRoom()">✦ Créer un salon</button>
+        </div>
+        <div class="inp-row">
+          <input id="inp-code" class="inp" placeholder="CODE SALON" maxlength="6" style="letter-spacing:.25em" autocomplete="off" />
+          <button class="btn primary" onclick="joinRoom()">Rejoindre</button>
+        </div>
+        <div id="menu-error" class="error-msg"></div>
       </div>
     </div>
 
-    <div class="center">
-      <div class="vs">VS</div>
-      <div>
-        <span class="rem" id="remMe"></span>
-        ⚡
-        <span class="rem" id="remOpp"></span>
+    <!-- ══ LOBBY ══ -->
+    <div id="screen-lobby" class="screen">
+      <div class="vn-box">
+        <span class="vn-label">SALON</span>
+        <div class="code-display" id="lobby-code">——</div>
+        <p class="lobby-hint">Partage ce code avec ton adversaire</p>
+        <div class="players-vs">
+          <div class="p-slot">
+            <div class="p-avatar" id="av1" style="background:rgba(180,30,30,0.3);color:#e88">P1</div>
+            <div class="p-name active" id="pn1">...</div>
+          </div>
+          <div class="vs-text">VS</div>
+          <div class="p-slot">
+            <div class="p-avatar" id="av2" style="background:rgba(30,20,5,0.5);color:var(--muted)">?</div>
+            <div class="p-name" id="pn2">...</div>
+          </div>
+        </div>
+        <div class="waiting-txt" id="lobby-waiting">En attente d'un adversaire…</div>
       </div>
-      <div class="rmsg" id="rmsg"></div>
-      <button class="btn-leave" onclick="leaveGame()">Quitter</button>
+      <div class="btn-group" style="margin-top:12px;">
+        <button class="btn danger full" onclick="goHome()">← Annuler</button>
+      </div>
     </div>
 
-    <div class="panel">
-      <div class="pname">Adversaire</div>
-      <div class="pscore" id="oppScore">0</div>
+    <!-- ══ GAME ══ -->
+    <div id="screen-game" class="screen">
+      <div class="scorebar">
+        <div class="ptag" id="ptag1">
+          <div class="ptag-dot" style="background:radial-gradient(circle,#ff7060,#cc2020);box-shadow:0 0 6px #cc2020aa"></div>
+          <span class="ptag-name" id="ptag1-name" style="color:#ff8070">J1</span>
+        </div>
+        <div class="ptag" id="ptag2">
+          <span class="ptag-name" id="ptag2-name" style="color:var(--amber2)">J2</span>
+          <div class="ptag-dot" style="background:radial-gradient(circle,#ffe066,#d49a00);box-shadow:0 0 6px #d49a00aa"></div>
+        </div>
+      </div>
+
+      <div id="board-wrap">
+        <div id="drop-row"></div>
+        <div id="board"></div>
+      </div>
+
+      <!-- Dialogue VN en bas -->
+      <div id="vn-dialogue">
+        <span class="speaker-tag" id="vn-speaker">—</span>
+        <div class="dialogue-text" id="vn-text">…</div>
+      </div>
+
+      <div id="game-actions"></div>
     </div>
 
-  </div>
-</div>
+  </div><!-- /app -->
+</div><!-- /wrap -->
 
 <script>
-const SUPABASE_URL='https://mkyrhafbsmhyktkjjeoi.supabase.co';
-const SUPABASE_KEY='sb_publishable_chgNcjaLvZOho5tezPbA8A_Yoq1PyqF';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
-let roomId=null,myRole=null,myChoice=null,realtimeSub=null;
-
-function notif(msg){
- const el=document.getElementById('notif');
- el.textContent=msg;
- el.classList.add('show');
- setTimeout(()=>el.classList.remove('show'),2000);
+// ══ PARTICULES ══
+const pc = document.getElementById('particles')
+for (let i = 0; i < 18; i++) {
+  const p = document.createElement('div')
+  p.className = 'particle'
+  p.style.cssText = `left:${Math.random()*100}%;--dur:${6+Math.random()*10}s;--delay:${Math.random()*8}s;--drift:${(Math.random()-0.5)*120}px;width:${1+Math.random()*3}px;height:${1+Math.random()*3}px;opacity:${0.3+Math.random()*0.4}`
+  pc.appendChild(p)
 }
 
-function genCode(){return Math.random().toString(36).substring(2,7).toUpperCase();}
+// ══ CONFIG ══
+const SUPABASE_URL      = 'https://mkyrhafbsmhyktkjjeoi.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_chgNcjaLvZOho5tezPbA8A_Yoq1PyqF'
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+// ══ STATE ══
+let state = { screen:'menu', playerId:null, myNum:null, roomId:null, room:null, pollTimer:null, hoverCol:null }
+
+// ══ UTILS ══
+function genId(n=6){ return Math.random().toString(36).slice(2,2+n).toUpperCase() }
+function emptyBoard(){ return Array(6).fill(null).map(()=>Array(7).fill(null)) }
+function parseBoard(b){ return typeof b==='string'?JSON.parse(b):b }
+
+function dropPiece(board,col,player){
+  for(let r=5;r>=0;r--){
+    if(!board[r][col]){
+      const nb=board.map(row=>[...row]); nb[r][col]=player; return{board:nb,row:r}
+    }
+  }
+  return null
+}
+function checkWinner(board,row,col,player){
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]]
+  for(const[dr,dc]of dirs){
+    let n=1
+    for(let d=1;d<4;d++){const r=row+dr*d,c=col+dc*d;if(r>=0&&r<6&&c>=0&&c<7&&board[r][c]===player)n++;else break}
+    for(let d=1;d<4;d++){const r=row-dr*d,c=col-dc*d;if(r>=0&&r<6&&c>=0&&c<7&&board[r][c]===player)n++;else break}
+    if(n>=4)return true
+  }
+  return false
+}
+function getWinCells(board,player){
+  const dirs=[[0,1],[1,0],[1,1],[1,-1]]
+  for(let r=0;r<6;r++)for(let c=0;c<7;c++){
+    if(board[r][c]!==player)continue
+    for(const[dr,dc]of dirs){
+      const cells=[[r,c]]
+      for(let d=1;d<4;d++){const nr=r+dr*d,nc=c+dc*d;if(nr>=0&&nr<6&&nc>=0&&nc<7&&board[nr][nc]===player)cells.push([nr,nc]);else break}
+      if(cells.length>=4)return cells
+    }
+  }
+  return[]
+}
+
+// ══ DIALOGUE VN ══
+const dialogues = {
+  myTurn:   ["C'est ton tour… montre ce que tu vaux.", "La prochaine pièce peut tout changer.", "Réfléchis bien avant de jouer.", "À toi de jouer."],
+  oppTurn:  ["Ton adversaire réfléchit…", "Il prend son temps. Intéressant.", "Regarde bien ce qu'il va faire.", "Le silence avant le coup…"],
+  win:      ["Magnifique. Tu as dominé ce plateau.", "Victoire. Le serveur t'appartient ce soir.", "Impressionnant. Personne ne t'a résisté.", "Gagné. C'était inévitable."],
+  lose:     ["Cette fois, c'est lui qui l'emporte.", "Une défaite. Mais le match revanche t'attend.", "Il t'a eu. Pour cette fois.", "Perdu. Reviens plus fort."],
+  draw:     ["Égalité. Vous êtes trop bien assortis.", "Personne ne cède. Match nul.", "Le plateau est plein. Aucun vainqueur."],
+  join:     ["Un adversaire a rejoint le salon.", "La partie peut commencer."],
+}
+function rnd(arr){ return arr[Math.floor(Math.random()*arr.length)] }
+function setDialogue(speaker, key){
+  document.getElementById('vn-speaker').textContent = speaker.toUpperCase()
+  document.getElementById('vn-text').textContent = rnd(dialogues[key])
+}
+
+// ══ POLLING ══
+function startPolling(){
+  stopPolling()
+  state.pollTimer = setInterval(async()=>{
+    if(!state.roomId) return
+    const{data,error}=await sb.from('rooms').select('*').eq('id',state.roomId).single()
+    if(error||!data) return
+    state.room=data
+
+    if(state.screen==='lobby'){
+      if(data.player2_name){
+        document.getElementById('pn2').textContent=data.player2_name
+        document.getElementById('pn2').classList.add('active')
+        document.getElementById('av2').textContent='P2'
+        document.getElementById('av2').style.background='rgba(140,100,0,0.4)'
+        document.getElementById('av2').style.color='var(--amber2)'
+        document.getElementById('av2').classList.add('filled')
+        document.getElementById('lobby-waiting').style.display='none'
+      }
+      if(data.player2_id){ stopPolling(); showScreen('game'); setDialogue('Aiko', 'join'); startPolling(); return }
+    }
+    if(state.screen==='game') renderGame()
+  }, 1000)
+}
+function stopPolling(){ if(state.pollTimer){clearInterval(state.pollTimer);state.pollTimer=null} }
+
+// ══ ACTIONS ══
 async function createRoom(){
- const code=genCode();
- const state={p1:true,p2:false,p1choice:null,p2choice:null,scores:{p1:0,p2:0}};
- await sb.from('rooms').insert({id:code,state});
- roomId=code;myRole='p1';
- startGame(state);
+  const name=document.getElementById('inp-name').value.trim()
+  if(!name) return showError('Entre ton nom…')
+  setError('')
+  const roomId=genId(), playerId=genId()
+  const{error}=await sb.from('rooms').insert({id:roomId,player1_id:playerId,player1_name:name,board:JSON.stringify(emptyBoard()),turn:1})
+  if(error){ console.error(error); return showError('Erreur: '+(error.message||JSON.stringify(error))) }
+  state.playerId=playerId; state.myNum=1; state.roomId=roomId
+  const{data}=await sb.from('rooms').select('*').eq('id',roomId).single()
+  state.room=data
+  document.getElementById('lobby-code').textContent=roomId
+  document.getElementById('pn1').textContent=name
+  showScreen('lobby'); startPolling()
 }
 
 async function joinRoom(){
- const code=document.getElementById('codeInput').value.trim().toUpperCase();
- const {data}=await sb.from('rooms').select('state').eq('id',code).single();
- if(!data){notif("introuvable");return;}
- roomId=code;myRole='p2';
- data.state.p2=true;
- await sb.from('rooms').update({state:data.state}).eq('id',code);
- startGame(data.state);
+  const name=document.getElementById('inp-name').value.trim()
+  const code=document.getElementById('inp-code').value.trim().toUpperCase()
+  if(!name) return showError('Entre ton nom…')
+  if(!code) return showError('Entre un code salon…')
+  setError('')
+  const{data:room,error}=await sb.from('rooms').select('*').eq('id',code).single()
+  if(error||!room) return showError('Salon introuvable…')
+  if(room.player2_id) return showError('Ce salon est complet.')
+  const playerId=genId()
+  const{error:ue}=await sb.from('rooms').update({player2_id:playerId,player2_name:name}).eq('id',code)
+  if(ue) return showError('Erreur: '+(ue.message||JSON.stringify(ue)))
+  state.playerId=playerId; state.myNum=2; state.roomId=code
+  const{data:u}=await sb.from('rooms').select('*').eq('id',code).single()
+  state.room=u
+  showScreen('game'); setDialogue('Aiko','join'); startPolling()
 }
 
-function startGame(state){
- document.getElementById('lobby').style.display='none';
- document.getElementById('game').style.display='block';
- document.getElementById('roomCodeDisplay').textContent=roomId;
- subscribe();
+async function playMove(col){
+  const{room,myNum}=state
+  if(!room||room.winner||room.draw||room.turn!==myNum) return
+  const board=parseBoard(room.board)
+  const result=dropPiece(board,col,myNum)
+  if(!result) return
+  const won=checkWinner(result.board,result.row,col,myNum)
+  const draw=!won&&result.board[0].every(c=>c!==null)
+  state.room={...room,board:JSON.stringify(result.board),turn:myNum===1?2:1,winner:won?myNum:null,draw}
+  renderGame()
+  await sb.from('rooms').update({board:JSON.stringify(result.board),turn:myNum===1?2:1,winner:won?myNum:null,draw}).eq('id',state.roomId)
 }
 
-function subscribe(){
- realtimeSub=sb.channel('room-'+roomId)
- .on('postgres_changes',{event:'UPDATE',schema:'public',table:'rooms',filter:'id=eq.'+roomId},
- payload=>updateUI(payload.new.state))
- .subscribe();
+async function resetGame(){
+  await sb.from('rooms').update({board:JSON.stringify(emptyBoard()),turn:1,winner:null,draw:false}).eq('id',state.roomId)
 }
 
-function updateUI(state){
- const opp=myRole==='p1'?'p2':'p1';
- document.getElementById('myScore').textContent=state.scores[myRole];
- document.getElementById('oppScore').textContent=state.scores[opp];
-
- if(state.p1choice&&state.p2choice) showResult(state);
+function goHome(){
+  stopPolling()
+  state={screen:'menu',playerId:null,myNum:null,roomId:null,room:null,pollTimer:null,hoverCol:null}
+  document.getElementById('inp-name').value=''
+  document.getElementById('inp-code').value=''
+  setError(''); showScreen('menu')
 }
 
-async function pickChoice(c){
- if(myChoice) return;
- myChoice=c;
- const {data}=await sb.from('rooms').select('state').eq('id',roomId).single();
- const state=data.state;
- state[myRole+'choice']=c;
-
- if(state.p1choice&&state.p2choice) compute(state);
-
- await sb.from('rooms').update({state}).eq('id',roomId);
+// ══ RENDER ══
+function buildBoard(){
+  const dr=document.getElementById('drop-row')
+  dr.innerHTML=''
+  for(let c=0;c<7;c++){const d=document.createElement('div');d.className='drop-dot';d.id='dd-'+c;dr.appendChild(d)}
+  const bd=document.getElementById('board')
+  bd.innerHTML=''
+  for(let r=0;r<6;r++)for(let c=0;c<7;c++){
+    const cell=document.createElement('div')
+    cell.className='cell';cell.id=`c-${r}-${c}`
+    cell.addEventListener('click',()=>playMove(c))
+    cell.addEventListener('mouseenter',()=>setHover(c))
+    cell.addEventListener('mouseleave',()=>setHover(null))
+    bd.appendChild(cell)
+  }
 }
 
-function compute(state){
- const c1=state.p1choice,c2=state.p2choice;
- let w='draw';
- if(c1!==c2){
- if((c1==='pierre'&&c2==='ciseaux')||(c1==='feuille'&&c2==='pierre')||(c1==='ciseaux'&&c2==='feuille')) w='p1';
- else w='p2';
- }
- if(w!=='draw') state.scores[w]++;
- state.result={w,c1,c2};
+function setHover(col){
+  state.hoverCol=col
+  const can=state.room&&!state.room.winner&&!state.room.draw&&state.room.turn===state.myNum
+  for(let c=0;c<7;c++){
+    const d=document.getElementById('dd-'+c)
+    if(!d)continue
+    d.style.background = (col===c&&can) ? (state.myNum===1?'rgba(200,40,40,0.7)':'rgba(200,150,0,0.7)') : 'transparent'
+  }
 }
 
-function showResult(state){
- const opp=myRole==='p1'?'p2':'p1';
- const myC=state[myRole+'choice'];
- const oppC=state[opp+'choice'];
+function renderGame(){
+  const{room,myNum}=state
+  if(!room)return
 
- document.getElementById('remMe').textContent=myC==='pierre'?'🪨':myC==='feuille'?'📄':'✂️';
- document.getElementById('remOpp').textContent=oppC==='pierre'?'🪨':oppC==='feuille'?'📄':'✂️';
+  document.getElementById('ptag1-name').textContent=room.player1_name||'J1'
+  document.getElementById('ptag2-name').textContent=room.player2_name||'J2'
+  document.getElementById('ptag1').classList.toggle('dim',room.turn!==1&&!room.winner&&!room.draw)
+  document.getElementById('ptag2').classList.toggle('dim',room.turn!==2&&!room.winner&&!room.draw)
 
- document.getElementById('remMe').classList.add('show');
- document.getElementById('remOpp').classList.add('show');
+  // Dialogue VN
+  const myName = myNum===1?room.player1_name:room.player2_name
+  if(room.winner){
+    if(room.winner===myNum) setDialogue(myName,'win')
+    else setDialogue(myNum===1?room.player2_name:room.player1_name,'lose')
+  } else if(room.draw){
+    setDialogue('Aiko','draw')
+  } else if(room.turn===myNum){
+    setDialogue(myName,'myTurn')
+  } else {
+    const oppName=myNum===1?room.player2_name:room.player1_name
+    setDialogue(oppName||'Adversaire','oppTurn')
+  }
 
- setTimeout(resetRound,2000);
+  const board=parseBoard(room.board)
+  const winCells=room.winner?getWinCells(board,room.winner):[]
+  const winSet=new Set(winCells.map(([r,c])=>`${r}-${c}`))
+
+  for(let r=0;r<6;r++)for(let c=0;c<7;c++){
+    const cell=document.getElementById(`c-${r}-${c}`)
+    if(!cell)continue
+    const v=board[r][c]
+    cell.className='cell'
+    if(v===1)cell.classList.add('p1')
+    if(v===2)cell.classList.add('p2')
+    if(winSet.has(`${r}-${c}`))cell.classList.add('win')
+  }
+  setHover(state.hoverCol)
+
+  const actions=document.getElementById('game-actions')
+  actions.innerHTML=''
+  if(myNum&&(room.winner||room.draw)){
+    const b=document.createElement('button');b.className='btn primary';b.style.flex='1';b.textContent='↺ Rejouer';b.onclick=resetGame;actions.appendChild(b)
+  }
+  if(myNum){
+    const b=document.createElement('button');b.className='btn danger';b.style.flex='1';b.textContent='← Menu';b.onclick=goHome;actions.appendChild(b)
+  }
 }
 
-async function resetRound(){
- myChoice=null;
- const {data}=await sb.from('rooms').select('state').eq('id',roomId).single();
- const state=data.state;
- state.p1choice=null;
- state.p2choice=null;
- await sb.from('rooms').update({state}).eq('id',roomId);
-
- document.getElementById('remMe').classList.remove('show');
- document.getElementById('remOpp').classList.remove('show');
+function showScreen(name){
+  state.screen=name
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))
+  document.getElementById('screen-'+name).classList.add('active')
+  if(name==='game'){buildBoard();renderGame()}
 }
+function showError(msg){
+  const el=document.getElementById('menu-error')
+  el.textContent=msg;el.style.animation='none'
+  requestAnimationFrame(()=>{el.style.animation='shake .4s ease'})
+}
+function setError(msg){document.getElementById('menu-error').textContent=msg}
 
-function leaveGame(){location.reload();}
+document.getElementById('inp-name').addEventListener('keydown',e=>{if(e.key==='Enter')createRoom()})
+document.getElementById('inp-code').addEventListener('keydown',e=>{if(e.key==='Enter')joinRoom()})
+document.getElementById('inp-code').addEventListener('input',e=>{e.target.value=e.target.value.toUpperCase()})
 </script>
-
 </body>
 </html>
