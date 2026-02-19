@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Échecs — La Taverne</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=Rye&display=swap" rel="stylesheet">
+<style>
+:root {
+  --wood-dark:#2c1a0e; --wood-mid:#4a2c14; --wood-light:#6b3f1f; --wood-grain:#3d2010;
+  --leather:#7a4a2a; --leather-light:#9a6040;
+  --amber:#c87a2a; --amber-glow:#e8952a;
+  --cream-worn:#d4b896; --cream-dark:#b89060;
+  --sq-light:#c8a870; --sq-dark:#5c3518;
+  --candle:#f5a830;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+
+@keyframes flicker{0%,100%{opacity:1}10%{opacity:.95}50%{opacity:.97}}
+@keyframes ember{0%,100%{box-shadow:0 0 8px 2px rgba(248,150,30,.6),0 0 20px 5px rgba(200,100,20,.3)}50%{box-shadow:0 0 14px 4px rgba(248,180,50,.8),0 0 30px 10px rgba(220,130,30,.4)}}
+@keyframes candle-glow{0%,100%{box-shadow:0 0 30px 10px rgba(245,168,48,.12),0 0 60px 20px rgba(200,100,20,.07)}50%{box-shadow:0 0 45px 18px rgba(245,168,48,.18),0 0 80px 30px rgba(200,100,20,.11)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+
+html,body{height:100%;}
+body{
+  background-color:var(--wood-dark);
+  background-image:
+    repeating-linear-gradient(88deg,transparent 0,transparent 18px,rgba(0,0,0,.08) 18px,rgba(0,0,0,.08) 20px,transparent 20px,transparent 38px,rgba(80,40,10,.06) 38px,rgba(80,40,10,.06) 40px),
+    radial-gradient(ellipse at 50% 0%,rgba(200,120,40,.12) 0%,transparent 60%);
+  min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:16px 12px 28px;
+  color:var(--cream-worn);
+  font-family:'Lora',serif;
+  overflow-x:hidden;
+}
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:1000;opacity:.55;}
+
+.candle{position:fixed;width:7px;height:7px;border-radius:50%;background:var(--candle);animation:ember 2s ease-in-out infinite;z-index:0;}
+.c1{top:40px;left:40px}.c2{top:40px;right:40px;animation-delay:.7s}.c3{bottom:40px;left:40px;animation-delay:1.2s}.c4{bottom:40px;right:40px;animation-delay:.4s}
+.halo{position:fixed;width:180px;height:180px;border-radius:50%;pointer-events:none;z-index:0;animation:candle-glow 2s ease-in-out infinite;}
+.h1{top:-20px;left:-20px;background:radial-gradient(circle,rgba(245,168,48,.13) 0%,transparent 70%)}
+.h2{top:-20px;right:-20px;background:radial-gradient(circle,rgba(245,168,48,.10) 0%,transparent 70%);animation-delay:.7s}
+.h3{bottom:-20px;left:-20px;background:radial-gradient(circle,rgba(245,168,48,.10) 0%,transparent 70%);animation-delay:1.2s}
+.h4{bottom:-20px;right:-20px;background:radial-gradient(circle,rgba(245,168,48,.08) 0%,transparent 70%);animation-delay:.4s}
+
+/* SIGN */
+.sign-wrap{position:relative;margin-bottom:18px;z-index:10;}
+.sign-wrap::before,.sign-wrap::after{content:'';position:absolute;top:-20px;width:2px;height:22px;background:repeating-linear-gradient(to bottom,var(--cream-dark) 0,var(--cream-dark) 3px,var(--leather) 3px,var(--leather) 5px);border-radius:1px;}
+.sign-wrap::before{left:26%}.sign-wrap::after{right:26%}
+.sign{background:var(--wood-mid);border:3px solid var(--wood-grain);border-radius:6px;padding:8px 32px;box-shadow:inset 0 2px 8px rgba(0,0,0,.4),0 4px 16px rgba(0,0,0,.6);background-image:repeating-linear-gradient(5deg,transparent,transparent 12px,rgba(0,0,0,.05) 12px,rgba(0,0,0,.05) 14px);position:relative;}
+.sign::before,.sign::after{content:'⚜';position:absolute;color:var(--amber);font-size:1rem;top:50%;transform:translateY(-50%);opacity:.7;}
+.sign::before{left:9px}.sign::after{right:9px}
+h1{font-family:'Rye',serif;font-size:clamp(1.05rem,4.5vw,2.1rem);color:var(--amber-glow);letter-spacing:.12em;text-shadow:0 2px 4px rgba(0,0,0,.8),0 0 18px rgba(200,120,30,.4);animation:flicker 4s ease-in-out infinite;}
+
+/* SCREENS */
+.screen{display:none;z-index:10;position:relative;animation:fadeIn .35s ease;width:100%;}
+.screen.active{display:flex;flex-direction:column;align-items:center;}
+
+/* ===== LOBBY ===== */
+.lobby-box{
+  background:var(--leather);
+  border:2px solid var(--wood-grain);border-radius:6px;
+  padding:22px 20px;width:min(390px,96vw);
+  box-shadow:inset 0 1px 3px rgba(255,255,255,.07),0 8px 32px rgba(0,0,0,.6);
+  background-image:repeating-linear-gradient(170deg,transparent,transparent 20px,rgba(0,0,0,.04) 20px,rgba(0,0,0,.04) 22px);
+}
+.sec-title{font-family:'Rye',serif;font-size:.66rem;letter-spacing:.2em;color:var(--amber);text-transform:uppercase;margin-bottom:11px;display:flex;align-items:center;gap:8px;}
+.sec-title::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(200,120,40,.4),transparent);}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:.74rem;font-style:italic;color:var(--cream-dark);margin-bottom:4px;}
+.field input{
+  width:100%;padding:11px 12px;
+  background:var(--wood-dark);border:1px solid var(--wood-grain);border-radius:3px;
+  color:var(--cream-worn);font-family:'Lora',serif;font-size:1rem;
+  outline:none;transition:border-color .3s;-webkit-appearance:none;
+}
+.field input:focus{border-color:var(--amber);box-shadow:0 0 8px rgba(200,120,30,.2);}
+.field input::placeholder{color:rgba(212,184,150,.3);}
+.btn{
+  font-family:'Rye',serif;font-size:.66rem;letter-spacing:.15em;text-transform:uppercase;
+  padding:13px 18px;background:var(--wood-mid);border:2px solid var(--wood-grain);
+  color:var(--amber-glow);cursor:pointer;transition:all .3s;border-radius:3px;width:100%;
+  box-shadow:inset 0 1px 2px rgba(255,255,255,.06),0 3px 8px rgba(0,0,0,.5);
+  background-image:repeating-linear-gradient(85deg,transparent,transparent 10px,rgba(0,0,0,.05) 10px,rgba(0,0,0,.05) 11px);
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;
+}
+.btn:hover:not(:disabled),.btn:active:not(:disabled){background-color:var(--wood-light);border-color:var(--amber);color:var(--candle);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.sm{font-size:.58rem;padding:10px 14px;}
+.divider{display:flex;align-items:center;gap:8px;color:var(--amber);opacity:.4;font-size:.55rem;margin:14px 0;}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:linear-gradient(to right,transparent,var(--amber),transparent);opacity:.5;}
+.status-msg{font-size:.76rem;font-style:italic;color:var(--cream-dark);text-align:center;margin-top:10px;min-height:18px;line-height:1.6;}
+.status-msg.error{color:#e8805a;}
+.status-msg.waiting{animation:pulse 1.5s ease-in-out infinite;color:var(--amber-glow);}
+
+/* ===== GAME — mobile first ===== */
+.game-wrap{width:100%;display:flex;flex-direction:column;align-items:center;gap:7px;z-index:10;position:relative;}
+
+.code-badge{font-family:'Rye',serif;font-size:.58rem;letter-spacing:.22em;color:var(--amber);opacity:.6;background:var(--wood-mid);border:1px solid rgba(200,120,40,.3);border-radius:3px;padding:4px 12px;}
+
+/* player bar */
+.bar{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  background:var(--leather);border:1px solid var(--wood-grain);border-radius:4px;
+  padding:9px 12px;
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+  background-image:repeating-linear-gradient(170deg,transparent,transparent 20px,rgba(0,0,0,.04) 20px,rgba(0,0,0,.04) 22px);
+  transition:all .4s;
+}
+.bar.active{border-color:var(--amber);background-color:var(--leather-light);box-shadow:0 2px 12px rgba(0,0,0,.4),0 0 14px rgba(200,120,30,.12);}
+.bar-left{display:flex;flex-direction:column;gap:2px;}
+.bar-name{font-family:'Rye',serif;font-size:.7rem;letter-spacing:.14em;color:var(--amber-glow);text-shadow:0 1px 3px rgba(0,0,0,.6);}
+.bar-role{font-size:.68rem;font-style:italic;color:var(--cream-dark);opacity:.75;}
+.bar-you{font-size:.58rem;color:#8ecf8e;font-style:italic;}
+.bar-right{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.bar-timer{font-family:'Rye',serif;font-size:1.2rem;color:var(--cream-worn);text-shadow:0 1px 3px rgba(0,0,0,.6);}
+.bar.active .bar-timer{color:var(--amber-glow);text-shadow:0 0 10px rgba(232,149,42,.5);}
+.bar-cap{font-size:.82rem;text-align:right;max-width:160px;line-height:1.3;word-break:break-all;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+
+/* board */
+.board-zone{display:flex;flex-direction:column;align-items:center;gap:3px;}
+.rank-files{display:flex;align-items:center;}
+.labels-col{display:flex;flex-direction:column;width:16px;margin-right:3px;}
+.labels-row{display:flex;padding-left:19px;}
+.lbl{display:flex;align-items:center;justify-content:center;font-size:.52rem;font-style:italic;color:var(--cream-dark);opacity:.5;}
+.board{
+  display:grid;grid-template-columns:repeat(8,1fr);
+  border:3px solid var(--wood-grain);
+  outline:2px solid rgba(200,120,40,.22);outline-offset:2px;
+  box-shadow:0 0 0 5px var(--wood-dark),0 0 0 7px rgba(200,120,40,.18),0 0 0 9px var(--wood-grain),0 10px 35px rgba(0,0,0,.65);
+}
+.sq{display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;user-select:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.sq.light{background:var(--sq-light);}
+.sq.dark{background:var(--sq-dark);}
+.sq.last-move-from.light,.sq.last-move-to.light{background:color-mix(in srgb,var(--sq-light) 52%,var(--amber) 48%)!important;}
+.sq.last-move-from.dark,.sq.last-move-to.dark{background:color-mix(in srgb,var(--sq-dark) 42%,var(--amber) 58%)!important;}
+.sq.selected{background:color-mix(in srgb,var(--amber) 42%,var(--sq-light) 58%)!important;}
+.sq.selected.dark{background:color-mix(in srgb,var(--amber) 32%,var(--sq-dark) 68%)!important;}
+.sq.in-check{background:rgba(155,38,18,.65)!important;box-shadow:inset 0 0 16px rgba(220,60,30,.5)!important;}
+.sq::after{content:'';position:absolute;border-radius:50%;pointer-events:none;opacity:0;z-index:3;}
+.sq.movable::after{width:30%;height:30%;background:rgba(200,150,50,.55);opacity:1;}
+.sq.capturable::after{width:88%;height:88%;background:transparent;border:4px solid rgba(175,55,28,.65);opacity:1;}
+.piece{line-height:1;pointer-events:none;z-index:2;position:relative;filter:drop-shadow(0 2px 4px rgba(0,0,0,.7));}
+
+.game-status{font-family:'Rye',serif;font-size:.72rem;letter-spacing:.13em;color:var(--amber-glow);text-align:center;min-height:22px;text-shadow:0 0 10px rgba(232,149,42,.4);animation:flicker 6s ease-in-out infinite;}
+.action-row{display:flex;gap:8px;width:100%;max-width:400px;}
+.action-row .btn{flex:1;}
+
+/* history (desktop only) */
+.history-panel{
+  background:#b89a6a;border:2px solid var(--wood-grain);border-radius:4px;
+  padding:10px;height:115px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--leather) transparent;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 18px,rgba(100,60,20,.15) 18px,rgba(100,60,20,.15) 19px);
+}
+.history-title{font-family:'Rye',serif;font-size:.54rem;letter-spacing:.22em;color:var(--wood-dark);text-transform:uppercase;margin-bottom:5px;opacity:.6;}
+.history-row{display:flex;gap:5px;font-size:.7rem;color:var(--wood-dark);margin-bottom:2px;}
+.history-row span:first-child{color:var(--leather);font-size:.58rem;min-width:16px;opacity:.65;}
+.history-row .wm{min-width:46px;font-weight:600;}
+.history-row .bm{opacity:.75;}
+
+/* promo */
+.promo-modal{position:fixed;inset:0;background:rgba(10,5,0,.9);display:none;align-items:center;justify-content:center;z-index:200;}
+.promo-modal.show{display:flex;}
+.promo-box{background:var(--leather);border:3px solid var(--amber);border-radius:4px;padding:22px 28px;text-align:center;box-shadow:0 0 40px rgba(200,120,30,.3);max-width:90vw;}
+.promo-box h3{font-family:'Rye',serif;font-size:.88rem;letter-spacing:.2em;color:var(--amber-glow);margin-bottom:14px;}
+.promo-pieces{display:flex;gap:8px;justify-content:center;}
+.promo-piece{font-size:2rem;cursor:pointer;padding:10px;border:2px solid rgba(200,120,40,.3);border-radius:3px;background:var(--wood-mid);transition:all .2s;-webkit-tap-highlight-color:transparent;}
+.promo-piece:active{background:var(--wood-light);border-color:var(--amber-glow);}
+
+/* overlay */
+.overlay{position:fixed;inset:0;background:rgba(10,5,0,.92);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .5s;}
+.overlay.show{opacity:1;pointer-events:all;}
+.overlay-box{text-align:center;border:3px solid var(--amber);padding:28px 32px;background:var(--leather);box-shadow:0 0 60px rgba(200,120,30,.25);transform:translateY(20px);transition:transform .5s;max-width:88vw;}
+.overlay.show .overlay-box{transform:translateY(0);}
+.overlay-box::before{content:'— ⚜ —';display:block;color:var(--amber);opacity:.5;font-size:.68rem;letter-spacing:.3em;margin-bottom:12px;}
+.overlay-box h2{font-family:'Rye',serif;font-size:1.5rem;color:var(--amber-glow);margin-bottom:8px;}
+.overlay-box p{font-size:.88rem;font-style:italic;color:var(--cream-worn);margin-bottom:20px;opacity:.85;}
+.btn-row{display:flex;gap:8px;}
+
+/* ===== DESKTOP layout ===== */
+@media(min-width:700px){
+  .game-wrap{flex-direction:row;align-items:flex-start;justify-content:center;gap:18px;width:auto;}
+  .board-col{display:flex;flex-direction:column;align-items:center;gap:8px;}
+  .side-col{display:flex!important;flex-direction:column;gap:12px;width:168px;}
+  /* hide mobile bars on desktop */
+  #bar-top-m,#bar-bot-m{display:none!important;}
+  /* show desktop bars */
+  #side-top-col,#side-bot-col{display:flex!important;}
+}
+</style>
+</head>
+<body>
+
+<div class="candle c1"></div><div class="candle c2"></div><div class="candle c3"></div><div class="candle c4"></div>
+<div class="halo h1"></div><div class="halo h2"></div><div class="halo h3"></div><div class="halo h4"></div>
+
+<div class="sign-wrap"><div class="sign"><h1>La Taverne des Échecs</h1></div></div>
+
+<!-- ===== LOBBY ===== -->
+<div class="screen active" id="screen-lobby">
+  <div class="lobby-box">
+    <div class="sec-title">Créer une partie</div>
+    <div class="field">
+      <label>Ton pseudo</label>
+      <input type="text" id="create-name" placeholder="Ex : Le Chevalier Noir" maxlength="24"/>
+    </div>
+    <button class="btn" id="btn-create">⚔ Créer une partie</button>
+
+    <div class="divider">ou</div>
+
+    <div class="sec-title">Rejoindre une partie</div>
+    <div class="field">
+      <label>Ton pseudo</label>
+      <input type="text" id="join-name" placeholder="Ex : La Dame Blanche" maxlength="24"/>
+    </div>
+    <div class="field">
+      <label>Code de partie (4 lettres)</label>
+      <input type="text" id="input-code" placeholder="TAVR" maxlength="4"
+        style="text-transform:uppercase;letter-spacing:.3em;font-family:'Rye',serif;font-size:1.1rem;text-align:center;"/>
+    </div>
+    <button class="btn" id="btn-join">🍺 Rejoindre</button>
+    <div class="status-msg" id="lobby-status"></div>
+  </div>
+</div>
+
+<!-- ===== GAME ===== -->
+<div class="screen" id="screen-game">
+  <div class="game-wrap">
+
+    <!-- Desktop: opponent side (left) -->
+    <div class="side-col" id="side-top-col" style="display:none;">
+      <div class="bar" id="bar-top-d">
+        <div class="bar-left">
+          <div class="bar-name" id="dt-name">—</div>
+          <div class="bar-role" id="dt-role">Noirs</div>
+        </div>
+        <div class="bar-right">
+          <div class="bar-timer" id="dt-timer">10:00</div>
+          <div class="bar-cap" id="dt-cap"></div>
+        </div>
+      </div>
+      <div class="history-panel">
+        <div class="history-title">Registre</div>
+        <div id="history-list"></div>
+      </div>
+    </div>
+
+    <!-- Center: board -->
+    <div class="board-col" id="board-col">
+      <div class="code-badge" id="code-badge">PARTIE : ????</div>
+
+      <!-- Mobile: opponent bar (top) -->
+      <div class="bar" id="bar-top-m">
+        <div class="bar-left">
+          <div class="bar-name" id="mt-name">—</div>
+          <div class="bar-role" id="mt-role">Noirs</div>
+        </div>
+        <div class="bar-right">
+          <div class="bar-timer" id="mt-timer">10:00</div>
+          <div class="bar-cap" id="mt-cap"></div>
+        </div>
+      </div>
+
+      <div class="board-zone">
+        <div class="rank-files">
+          <div class="labels-col" id="rank-labels"></div>
+          <div id="board" class="board"></div>
+        </div>
+        <div class="labels-row" id="file-labels"></div>
+      </div>
+
+      <!-- Mobile: my bar (bottom) -->
+      <div class="bar" id="bar-bot-m">
+        <div class="bar-left">
+          <div class="bar-name" id="mb-name">—</div>
+          <div class="bar-role" id="mb-role">Blancs</div>
+          <div class="bar-you" id="mb-you">← Toi</div>
+        </div>
+        <div class="bar-right">
+          <div class="bar-timer" id="mb-timer">10:00</div>
+          <div class="bar-cap" id="mb-cap"></div>
+        </div>
+      </div>
+
+      <div class="game-status" id="game-status">En attente…</div>
+      <div class="action-row">
+        <button class="btn sm" id="btn-leave">🚪 Quitter la partie</button>
+      </div>
+    </div>
+
+    <!-- Desktop: my side (right) -->
+    <div class="side-col" id="side-bot-col" style="display:none;">
+      <div class="bar" id="bar-bot-d">
+        <div class="bar-left">
+          <div class="bar-name" id="db-name">—</div>
+          <div class="bar-role" id="db-role">Blancs</div>
+          <div class="bar-you" id="db-you">← Toi</div>
+        </div>
+        <div class="bar-right">
+          <div class="bar-timer" id="db-timer">10:00</div>
+          <div class="bar-cap" id="db-cap"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Promotion -->
+<div class="promo-modal" id="promo-modal">
+  <div class="promo-box">
+    <h3>Couronnement du Pion</h3>
+    <div class="promo-pieces" id="promo-pieces"></div>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div class="overlay" id="overlay">
+  <div class="overlay-box">
+    <h2 id="ov-title">Fin de partie</h2>
+    <p id="ov-msg"></p>
+    <div class="btn-row">
+      <button class="btn" id="ov-new">⚔ Nouvelle partie</button>
+      <button class="btn sm" id="ov-leave">Quitter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── SUPABASE ────────────────────────────────────────────────
+const SUPABASE_URL  = 'https://mkyrhafbsmhyktkjjeoi.supabase.co';
+const SUPABASE_ANON = 'sb_publishable_chgNcjaLvZOho5tezPbA8A_Yoq1PyqF';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ─── CHESS ENGINE ────────────────────────────────────────────
+const FA=['a','b','c','d','e','f','g','h'];
+const PM={wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙',bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟'};
+const PV={Q:9,R:5,B:3,N:3,P:1,K:0};
+const pc=p=>p?p[0]:null,pt=p=>p?p[1]:null;
+const ib=(r,f)=>r>=0&&r<8&&f>=0&&f<8;
+const cb=b=>b.map(r=>[...r]);
+const a2=(r,f)=>FA[f]+(8-r);
+
+function slide(r,f,dirs,b){
+  const m=[],c=pc(b[r][f]);
+  for(const[dr,df]of dirs){let nr=r+dr,nf=f+df;
+    while(ib(nr,nf)){if(!b[nr][nf])m.push([nr,nf]);else{if(pc(b[nr][nf])!==c)m.push([nr,nf]);break;}nr+=dr;nf+=df;}}
+  return m;
+}
+function step(r,f,dl,b){const c=pc(b[r][f]);return dl.filter(([dr,df])=>{const nr=r+dr,nf=f+df;return ib(nr,nf)&&pc(b[nr][nf])!==c;}).map(([dr,df])=>[r+dr,f+df]);}
+function pawn(r,f,b,ep){
+  const c=pc(b[r][f]),d=c==='w'?-1:1,m=[];
+  const nr=r+d;
+  if(ib(nr,f)&&!b[nr][f]){m.push([nr,f]);if(r===(c==='w'?6:1)&&!b[r+2*d][f])m.push([r+2*d,f]);}
+  for(const df of[-1,1]){const nf=f+df;if(ib(nr,nf)){if(b[nr][nf]&&pc(b[nr][nf])!==c)m.push([nr,nf]);if(ep&&ep[0]===nr&&ep[1]===nf)m.push([nr,nf]);}}
+  return m;
+}
+function raw(r,f,b,ep){
+  const p=b[r][f];if(!p)return[];
+  switch(pt(p)){
+    case'P':return pawn(r,f,b,ep);
+    case'N':return step(r,f,[[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]],b);
+    case'B':return slide(r,f,[[-1,-1],[-1,1],[1,-1],[1,1]],b);
+    case'R':return slide(r,f,[[-1,0],[1,0],[0,-1],[0,1]],b);
+    case'Q':return slide(r,f,[[-1,-1],[-1,1],[1,-1],[1,1],[-1,0],[1,0],[0,-1],[0,1]],b);
+    case'K':return step(r,f,[[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]],b);
+    default:return[];
+  }
+}
+function inCheck(col,b){
+  let kr=-1,kf=-1;
+  for(let r=0;r<8;r++)for(let f=0;f<8;f++)if(b[r][f]===col+'K'){kr=r;kf=f;}
+  const en=col==='w'?'b':'w';
+  for(let r=0;r<8;r++)for(let f=0;f<8;f++)if(pc(b[r][f])===en)if(raw(r,f,b,null).some(([mr,mf])=>mr===kr&&mf===kf))return true;
+  return false;
+}
+function legal(r,f,b,ep,ca){
+  const p=b[r][f];if(!p)return[];const c=pc(p);
+  let m=raw(r,f,b,ep).filter(([nr,nf])=>{
+    const nb=cb(b);
+    if(pt(p)==='P'&&nf!==f&&!nb[nr][nf])nb[r][nf]=null;
+    nb[nr][nf]=nb[r][f];nb[r][f]=null;return!inCheck(c,nb);
+  });
+  if(pt(p)==='K'&&!inCheck(c,b)){
+    const row=c==='w'?7:0;
+    if(r===row&&f===4){
+      if(ca[c+'K']&&!b[row][5]&&!b[row][6]&&b[row][7]===c+'R'){
+        const n1=cb(b);n1[row][5]=c+'K';n1[row][4]=null;
+        const n2=cb(b);n2[row][6]=c+'K';n2[row][4]=null;
+        if(!inCheck(c,n1)&&!inCheck(c,n2))m.push([row,6,'K']);
+      }
+      if(ca[c+'Q']&&!b[row][3]&&!b[row][2]&&!b[row][1]&&b[row][0]===c+'R'){
+        const n1=cb(b);n1[row][3]=c+'K';n1[row][4]=null;
+        const n2=cb(b);n2[row][2]=c+'K';n2[row][4]=null;
+        if(!inCheck(c,n1)&&!inCheck(c,n2))m.push([row,2,'Q']);
+      }
+    }
+  }
+  return m;
+}
+function allLegal(col,b,ep,ca){
+  const all=[];
+  for(let r=0;r<8;r++)for(let f=0;f<8;f++)if(pc(b[r][f])===col)for(const m of legal(r,f,b,ep,ca))all.push([r,f,...m]);
+  return all;
+}
+function applyMove(fr,ff,tr,tf,sp,b,ep,ca){
+  const nb=cb(b),nc={...ca};let nep=null;
+  const p=nb[fr][ff],t=pt(p),c=pc(p);
+  if(t==='P'&&tf!==ff&&!nb[tr][tf])nb[fr][tf]=null;
+  if(sp==='K'){nb[tr][5]=c+'R';nb[tr][7]=null;}
+  if(sp==='Q'){nb[tr][3]=c+'R';nb[tr][0]=null;}
+  nb[tr][tf]=nb[fr][ff];nb[fr][ff]=null;
+  if(t==='P'&&Math.abs(tr-fr)===2)nep=[(fr+tr)/2,tf];
+  if(t==='K'){nc[c+'K']=false;nc[c+'Q']=false;}
+  if(t==='R'){if(ff===7)nc[c+'K']=false;if(ff===0)nc[c+'Q']=false;}
+  if(tr===0&&tf===7)nc['bK']=false;if(tr===0&&tf===0)nc['bQ']=false;
+  if(tr===7&&tf===7)nc['wK']=false;if(tr===7&&tf===0)nc['wQ']=false;
+  return{board:nb,enPassant:nep,castling:nc};
+}
+function initState(){
+  const b=Array(8).fill(null).map(()=>Array(8).fill(null));
+  ['R','N','B','Q','K','B','N','R'].forEach((t,f)=>{b[0][f]='b'+t;b[7][f]='w'+t;b[1][f]='bP';b[6][f]='wP';});
+  return{board:b,turn:'w',enPassant:null,castling:{wK:true,wQ:true,bK:true,bQ:true},
+    capturedByWhite:[],capturedByBlack:[],moveHistory:[],lastMove:null,
+    timeWhite:600,timeBlack:600,over:false,winner:null,overMsg:''};
+}
+
+// ─── APP STATE ───────────────────────────────────────────────
+let gameId=null,myColor=null,myName='',sub=null,gs=null;
+let sel=null,legals=[];
+let tickInt=null,tW=600,tB=600;
+let ppFr,ppFf,ppTr,ppTf,ppC;
+
+// ─── HELPERS ────────────────────────────────────────────────
+function $(id){return document.getElementById(id);}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');}
+function setStatus(msg,cls=''){const el=$('lobby-status');el.textContent=msg;el.className='status-msg'+(cls?' '+cls:'');}
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ';return Array.from({length:4},()=>c[Math.floor(Math.random()*c.length)]).join('');}
+function fmt(s){return`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;}
+
+// ─── LOBBY ───────────────────────────────────────────────────
+$('btn-create').onclick=async()=>{
+  const name=$('create-name').value.trim()||'Anonyme';
+  myName=name;myColor='w';gameId=genCode();
+  const{error}=await sb.from('chess_games').insert({id:gameId,white_name:name,black_name:null,state:initState()});
+  if(error){setStatus('Erreur : '+error.message,'error');return;}
+  setStatus(`Code : ${gameId} — En attente d'un adversaire…`,'waiting');
+  enterGame(gameId,'w',name);
+};
+
+$('btn-join').onclick=async()=>{
+  const name=$('join-name').value.trim()||'Anonyme';
+  const code=$('input-code').value.trim().toUpperCase();
+  if(code.length!==4){setStatus('Entrez un code de 4 lettres','error');return;}
+  const{data,error}=await sb.from('chess_games').select('*').eq('id',code).single();
+  if(error||!data){setStatus('Partie introuvable','error');return;}
+  if(data.black_name){setStatus('Cette partie est déjà complète','error');return;}
+  const{error:e2}=await sb.from('chess_games').update({black_name:name}).eq('id',code);
+  if(e2){setStatus('Erreur : '+e2.message,'error');return;}
+  myName=name;myColor='b';gameId=code;
+  enterGame(code,'b',name);
+};
+
+// ─── ENTER GAME ─────────────────────────────────────────────
+function enterGame(id,color,name){
+  showScreen('screen-game');
+  $('code-badge').textContent='PARTIE : '+id;
+  const myRole=color==='w'?'Blancs':'Noirs';
+  const oppRole=color==='w'?'Noirs':'Blancs';
+  // my bars
+  ['mb-name','db-name'].forEach(i=>{const el=$(i);if(el)el.textContent=name;});
+  ['mb-role','db-role'].forEach(i=>{const el=$(i);if(el)el.textContent=myRole;});
+  // opp bars
+  ['mt-name','dt-name'].forEach(i=>{const el=$(i);if(el)el.textContent='En attente…';});
+  ['mt-role','dt-role'].forEach(i=>{const el=$(i);if(el)el.textContent=oppRole;});
+  subscribeGame(id);
+  sb.from('chess_games').select('*').eq('id',id).single().then(({data})=>{if(data)applyData(data);});
+}
+
+function subscribeGame(id){
+  if(sub)sub.unsubscribe();
+  sub=sb.channel('g-'+id)
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'chess_games',filter:'id=eq.'+id},p=>applyData(p.new))
+    .subscribe();
+}
+
+// ─── APPLY STATE ─────────────────────────────────────────────
+function applyData(data){
+  const s=data.state;gs=s;
+  tW=s.timeWhite??600;tB=s.timeBlack??600;
+  const oppName=myColor==='w'?data.black_name:data.white_name;
+  if(oppName){['mt-name','dt-name'].forEach(i=>{const el=$(i);if(el)el.textContent=oppName;});}
+  updateTimers();updateBars();updateCaptured();renderHistory(s.moveHistory||[]);
+  clearInterval(tickInt);
+  if(!s.over&&data.black_name)tickInt=setInterval(tick,1000);
+  sel=null;legals=[];renderBoard();
+  if(s.over){
+    clearInterval(tickInt);
+    const t=$('ov-title'),m=$('ov-msg');
+    if(s.winner==='w'){t.textContent='Victoire !';m.textContent='Les Blancs gagnent — '+s.overMsg;}
+    else if(s.winner==='b'){t.textContent='Victoire !';m.textContent='Les Noirs gagnent — '+s.overMsg;}
+    else{t.textContent='Match Nul';m.textContent=s.overMsg;}
+    setTimeout(()=>$('overlay').classList.add('show'),500);
+    return;
+  }
+  const waiting=!data.black_name;
+  const myTurn=s.turn===myColor&&!waiting;
+  const st=$('game-status');
+  if(waiting)st.textContent='En attente d\'un adversaire… (code : '+gameId+')';
+  else if(inCheck(s.turn,s.board))st.textContent=`⚔ Échec ! — Tour des ${s.turn==='w'?'Blancs':'Noirs'}`;
+  else st.textContent=myTurn?'C\'est ton tour !':'Tour de l\'adversaire…';
+}
+
+// ─── TIMER ───────────────────────────────────────────────────
+function tick(){
+  if(!gs||gs.over)return;
+  if(gs.turn==='w'){tW=Math.max(0,tW-1);if(tW===0&&myColor==='w'){pushEnd('w');return;}}
+  else{tB=Math.max(0,tB-1);if(tB===0&&myColor==='b'){pushEnd('b');return;}}
+  updateTimers();
+}
+async function pushEnd(loser){
+  clearInterval(tickInt);
+  const winner=loser==='w'?'b':'w';
+  await sb.from('chess_games').update({state:{...gs,timeWhite:tW,timeBlack:tB,over:true,winner,overMsg:'Temps écoulé !'},updated_at:new Date().toISOString()}).eq('id',gameId);
+}
+function updateTimers(){
+  const myT=fmt(myColor==='w'?tW:tB),opT=fmt(myColor==='w'?tB:tW);
+  ['mb-timer','db-timer'].forEach(i=>{const el=$(i);if(el)el.textContent=myT;});
+  ['mt-timer','dt-timer'].forEach(i=>{const el=$(i);if(el)el.textContent=opT;});
+}
+function updateBars(){
+  if(!gs)return;
+  const myTurn=gs.turn===myColor;
+  $('bar-bot-m').classList.toggle('active',myTurn);
+  $('bar-top-m').classList.toggle('active',!myTurn);
+  const bd=$('bar-bot-d'),bt=$('bar-top-d');
+  if(bd)bd.classList.toggle('active',myTurn);
+  if(bt)bt.classList.toggle('active',!myTurn);
+}
+function updateCaptured(){
+  if(!gs)return;
+  const sort=arr=>[...arr].sort((a,b)=>(PV[pt(b)]||0)-(PV[pt(a)]||0));
+  const myC=myColor==='w'?gs.capturedByWhite:gs.capturedByBlack;
+  const opC=myColor==='w'?gs.capturedByBlack:gs.capturedByWhite;
+  const ms=sort(myC||[]).map(p=>PM[p]).join('');
+  const os=sort(opC||[]).map(p=>PM[p]).join('');
+  ['mb-cap','db-cap'].forEach(i=>{const el=$(i);if(el)el.textContent=ms;});
+  ['mt-cap','dt-cap'].forEach(i=>{const el=$(i);if(el)el.textContent=os;});
+}
+function renderHistory(hist){
+  const list=$('history-list');list.innerHTML='';
+  for(let i=0;i<hist.length;i+=2){
+    const row=document.createElement('div');row.className='history-row';
+    row.innerHTML=`<span>${Math.floor(i/2)+1}.</span><span class="wm">${hist[i]||''}</span><span class="bm">${hist[i+1]||''}</span>`;
+    list.appendChild(row);
+  }
+  list.scrollTop=list.scrollHeight;
+}
+
+// ─── BOARD ───────────────────────────────────────────────────
+function sqSize(){
+  // Fill screen width on mobile, bounded on desktop
+  const avail=Math.min(window.innerWidth-44, window.innerHeight-300, 540);
+  return Math.max(36,Math.min(68,Math.floor(avail/8)));
+}
+
+function renderBoard(){
+  const el=$('board');el.innerHTML='';
+  if(!gs)return;
+  const b=gs.board,sz=sqSize();
+  const rl=$('rank-labels'),fl=$('file-labels');
+  rl.innerHTML='';fl.innerHTML='';
+  for(let r=0;r<8;r++){const l=document.createElement('div');l.className='lbl';l.style.height=sz+'px';l.textContent=myColor==='w'?(8-r):(r+1);rl.appendChild(l);}
+  for(let f=0;f<8;f++){const l=document.createElement('div');l.className='lbl';l.style.width=sz+'px';l.textContent=myColor==='w'?FA[f]:FA[7-f];fl.appendChild(l);}
+
+  const movSet=new Set(legals.map(([r,f])=>r+','+f));
+  const capSet=new Set(legals.filter(([r,f])=>b[r][f]||(sel&&pt(b[sel[0]][sel[1]])==='P'&&gs.enPassant&&gs.enPassant[0]===r&&gs.enPassant[1]===f)).map(([r,f])=>r+','+f));
+  const rows=myColor==='w'?[0,1,2,3,4,5,6,7]:[7,6,5,4,3,2,1,0];
+  const cols=myColor==='w'?[0,1,2,3,4,5,6,7]:[7,6,5,4,3,2,1,0];
+
+  for(const r of rows){
+    for(const f of cols){
+      const sq=document.createElement('div');
+      sq.className='sq '+((r+f)%2===0?'light':'dark');
+      sq.style.width=sq.style.height=sz+'px';
+      if(sel&&sel[0]===r&&sel[1]===f)sq.classList.add('selected');
+      if(gs.lastMove){
+        if(gs.lastMove[0][0]===r&&gs.lastMove[0][1]===f)sq.classList.add('last-move-from');
+        else if(gs.lastMove[1][0]===r&&gs.lastMove[1][1]===f)sq.classList.add('last-move-to');
+      }
+      if(b[r][f]===gs.turn+'K'&&inCheck(gs.turn,b))sq.classList.add('in-check');
+      const k=r+','+f;
+      if(movSet.has(k))sq.classList.add(capSet.has(k)?'capturable':'movable');
+      if(b[r][f]){
+        const piece=document.createElement('div');
+        piece.className='piece';
+        piece.style.fontSize=Math.round(sz*0.64)+'px';
+        piece.textContent=PM[b[r][f]];
+        sq.appendChild(piece);
+      }
+      sq.addEventListener('click',()=>handleClick(r,f));
+      el.appendChild(sq);
+    }
+  }
+}
+
+window.addEventListener('resize',()=>{if(gs)renderBoard();});
+
+// ─── CLICK ───────────────────────────────────────────────────
+function handleClick(r,f){
+  if(!gs||gs.over||gs.turn!==myColor)return;
+  if($('mt-name').textContent==='En attente…')return;
+  const b=gs.board;
+  if(sel){
+    const mv=legals.find(([mr,mf])=>mr===r&&mf===f);
+    if(mv){doMove(sel[0],sel[1],r,f,mv[2]);return;}
+    if(b[r][f]&&pc(b[r][f])===myColor){sel=[r,f];legals=legal(r,f,b,gs.enPassant,gs.castling);renderBoard();return;}
+    sel=null;legals=[];renderBoard();return;
+  }
+  if(b[r][f]&&pc(b[r][f])===myColor){sel=[r,f];legals=legal(r,f,b,gs.enPassant,gs.castling);renderBoard();}
+}
+
+function doMove(fr,ff,tr,tf,sp){
+  const b=gs.board,t=pt(b[fr][ff]),c=pc(b[fr][ff]);
+  if(t==='P'&&(tr===0||tr===7)){ppFr=fr;ppFf=ff;ppTr=tr;ppTf=tf;ppC=c;showPromo(c);return;}
+  commitMove(fr,ff,tr,tf,sp,null);
+}
+function showPromo(c){
+  const sym=c==='w'?['♕','♖','♗','♘']:['♛','♜','♝','♞'],types=['Q','R','B','N'];
+  const con=$('promo-pieces');con.innerHTML='';
+  sym.forEach((s,i)=>{const d=document.createElement('div');d.className='promo-piece';d.textContent=s;d.onclick=()=>{$('promo-modal').classList.remove('show');commitMove(ppFr,ppFf,ppTr,ppTf,null,types[i]);};con.appendChild(d);});
+  $('promo-modal').classList.add('show');
+}
+
+async function commitMove(fr,ff,tr,tf,sp,promo){
+  const s=gs,b=s.board,p=b[fr][ff],t=pt(p),c=pc(p);
+  const cap=b[tr][tf];
+  let epCap=null;
+  if(t==='P'&&tf!==ff&&!b[tr][tf]&&s.enPassant&&s.enPassant[0]===tr&&s.enPassant[1]===tf)epCap=b[fr][tf];
+  const res=applyMove(fr,ff,tr,tf,sp,b,s.enPassant,s.castling);
+  if(promo)res.board[tr][tf]=c+promo;
+  const cwW=[...(s.capturedByWhite||[])],cwB=[...(s.capturedByBlack||[])];
+  if(cap)(c==='w'?cwW:cwB).push(cap);
+  if(epCap)(c==='w'?cwW:cwB).push(epCap);
+  const ft=promo||t;
+  let not='';
+  if(sp==='K')not='O-O';else if(sp==='Q')not='O-O-O';
+  else{if(ft!=='P')not+=ft;if(cap||epCap){if(ft==='P')not+=FA[ff];not+='x';}not+=a2(tr,tf);}
+  if(promo)not+='='+promo;
+  const nx=c==='w'?'b':'w';
+  const am=allLegal(nx,res.board,res.enPassant,res.castling);
+  const ck=inCheck(nx,res.board);
+  let over=false,winner=null,overMsg='';
+  if(am.length===0){over=true;if(ck){not+='#';winner=c;overMsg='Échec et mat !';}else overMsg='Pat — Match nul !';}
+  else if(ck)not+='+';
+  const ns={board:res.board,turn:nx,enPassant:res.enPassant,castling:res.castling,
+    capturedByWhite:cwW,capturedByBlack:cwB,moveHistory:[...(s.moveHistory||[]),not],
+    lastMove:[[fr,ff],[tr,tf]],timeWhite:tW,timeBlack:tB,over,winner,overMsg};
+  sel=null;legals=[];
+  await sb.from('chess_games').update({state:ns,updated_at:new Date().toISOString()}).eq('id',gameId);
+}
+
+// ─── LEAVE ───────────────────────────────────────────────────
+function leaveGame(){
+  clearInterval(tickInt);
+  if(sub){sub.unsubscribe();sub=null;}
+  gameId=null;myColor=null;gs=null;sel=null;legals=[];
+  $('overlay').classList.remove('show');
+  $('history-list').innerHTML='';
+  showScreen('screen-lobby');setStatus('');
+}
+$('btn-leave').onclick=leaveGame;
+$('ov-leave').onclick=leaveGame;
+$('ov-new').onclick=()=>{$('overlay').classList.remove('show');leaveGame();};
+</script>
+</body>
+</html>

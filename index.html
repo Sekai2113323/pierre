@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astralis - Espace Communautaire</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+        :root {
+            --gold: #d4a373;
+            --dark-wood: #1a120b;
+            --amber-glow: rgba(212, 163, 115, 0.2);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: #0f0a07;
+            color: #faedcd;
+            overflow-x: hidden;
+            margin: 0;
+        }
+
+        /* Arrière-plan avec effet de lumière */
+        .bg-taverne {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 50% 30%, var(--amber-glow) 0%, transparent 70%),
+                linear-gradient(rgba(15, 10, 7, 0.85), rgba(15, 10, 7, 0.95)),
+                url('https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=2000');
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+        }
+
+        /* Cartes de jeux */
+        .game-card {
+            background: rgba(44, 30, 18, 0.6);
+            border-left: 4px solid #e67e22;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(5px);
+        }
+
+        .game-card:hover {
+            transform: translateX(10px);
+            background: rgba(60, 42, 33, 0.8);
+            border-left-width: 8px;
+            box-shadow: 0 4px 20px rgba(230, 126, 34, 0.2);
+        }
+
+        /* Badge titre style image */
+        .astralis-badge {
+            background: rgba(30, 20, 10, 0.9);
+            border: 1px solid rgba(212, 163, 115, 0.3);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+
+        /* Boîte de dialogue Visual Novel */
+        .dialogue-box {
+            background: rgba(15, 10, 7, 0.95);
+            border: 1px solid rgba(212, 163, 115, 0.2);
+            box-shadow: 0 -5px 25px rgba(0,0,0,0.5);
+        }
+
+        .name-tag {
+            background: #7a4a2a;
+            color: #fff;
+            padding: 2px 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-radius: 4px 4px 0 0;
+        }
+
+        /* Scrollbar custom */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #1a120b; }
+        ::-webkit-scrollbar-thumb { background: #d4a373; border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="bg-taverne"></div>
+
+    <div class="min-h-screen flex flex-col items-center p-6 pb-44">
+        
+        <!-- En-tête -->
+        <header class="text-center mt-8 mb-12">
+            <div class="astralis-badge inline-block px-12 py-4 rounded-xl mb-2">
+                <h1 class="text-2xl font-bold tracking-[0.3em] text-[#e67e22]">ASTRALIS</h1>
+                <p class="text-sm opacity-60 uppercase tracking-widest mt-1">Espace communautaire</p>
+            </div>
+            <div class="h-1 w-24 bg-[#e67e22] mx-auto mt-4 rounded-full opacity-50"></div>
+        </header>
+
+        <!-- Liste des Jeux -->
+        <main class="w-full max-w-2xl space-y-4">
+            
+            <!-- Jeu : Échecs -->
+            <div class="game-card p-6 flex justify-between items-center group cursor-pointer" onclick="openGame('Échecs Royaux')">
+                <div class="flex items-center space-x-4">
+                    <span class="text-3xl">♟️</span>
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#faedcd] group-hover:text-white transition-colors">Échecs Royaux</h3>
+                        <p class="text-sm text-[#d4a373] opacity-80 mt-1">Affronte les plus grands stratèges du serveur.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="bg-[#e67e22] hover:bg-[#d35400] text-white px-6 py-2 rounded font-bold transition-transform active:scale-95">REJOINDRE</button>
+                </div>
+            </div>
+
+            <!-- Jeu : Puissance 4 -->
+            <div class="game-card p-6 flex justify-between items-center group cursor-pointer" onclick="openGame('Puissance 4 Stellaire')">
+                <div class="flex items-center space-x-4">
+                    <span class="text-3xl">🔴</span>
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#faedcd] group-hover:text-white transition-colors">Puissance 4 Stellaire</h3>
+                        <p class="text-sm text-[#d4a373] opacity-80 mt-1">Aligne quatre jetons avant ton adversaire.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="bg-[#e67e22] hover:bg-[#d35400] text-white px-6 py-2 rounded font-bold transition-transform active:scale-95">JOUER</button>
+                </div>
+            </div>
+
+            <!-- Jeu : Le Quiz d'Aiko -->
+            <div class="game-card p-6 flex justify-between items-center group cursor-pointer" onclick="openGame('Le Quiz d\'Aiko')">
+                <div class="flex items-center space-x-4">
+                    <span class="text-3xl">📝</span>
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#faedcd] group-hover:text-white transition-colors">Le Quiz d'Aiko</h3>
+                        <p class="text-sm text-[#d4a373] opacity-80 mt-1">Teste tes connaissances sur la communauté.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="bg-[#e67e22] hover:bg-[#d35400] text-white px-6 py-2 rounded font-bold transition-transform active:scale-95">DÉMARRER</button>
+                </div>
+            </div>
+
+            <!-- Jeu : Puzzle -->
+            <div class="game-card p-6 flex justify-between items-center group cursor-pointer" onclick="openGame('Puzzle de la Taverne')">
+                <div class="flex items-center space-x-4">
+                    <span class="text-3xl">🧩</span>
+                    <div>
+                        <h3 class="text-xl font-semibold text-[#faedcd] group-hover:text-white transition-colors">Puzzle de la Taverne</h3>
+                        <p class="text-sm text-[#d4a373] opacity-80 mt-1">Reconstitue l'ambiance chaleureuse d'Astralis.</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button class="bg-[#e67e22] hover:bg-[#d35400] text-white px-6 py-2 rounded font-bold transition-transform active:scale-95">JOUER</button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Boîte de dialogue Aiko -->
+        <section class="fixed bottom-0 left-0 w-full p-4 md:p-8 pointer-events-none">
+            <div class="max-w-4xl mx-auto dialogue-box rounded-xl p-6 pointer-events-auto relative">
+                <div class="absolute -top-7 left-8">
+                    <div class="name-tag">AIKO</div>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <!-- Icône Aiko -->
+                    <div class="hidden md:block w-20 h-20 rounded-full bg-gradient-to-br from-[#e67e22] to-[#7a4a2a] flex-shrink-0 border-2 border-[#d4a373] overflow-hidden">
+                        <img src="img2.png" alt="Aiko">
+                    </div>
+                    <div>
+                        <p id="typed-text" class="text-lg leading-relaxed text-gray-200">
+                            Alors, une petite partie d'échecs ou de puissance 4 ? C'est le meilleur moyen de se faire des amis ici !
+                        </p>
+                        <p class="text-xs mt-3 text-[#e67e22] animate-pulse">▶ Sélectionne un jeu sur la carte...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Toast de lancement -->
+    <div id="toast" class="fixed top-10 right-10 bg-[#e67e22] text-white px-6 py-3 rounded-lg shadow-2xl translate-x-[150%] transition-transform duration-500 z-50 font-bold">
+        Lancement du jeu...
+    </div>
+
+    <script>
+        function openGame(name) {
+            const toast = document.getElementById('toast');
+            toast.innerText = `Lancement de : ${name}...`;
+            toast.style.transform = 'translateX(0)';
+            
+            setTimeout(() => {
+                toast.style.transform = 'translateX(150%)';
+            }, 3000);
+        }
+
+        const textElement = document.getElementById('typed-text');
+        const text = textElement.innerText;
+        textElement.innerText = "";
+        let i = 0;
+
+        function typeWriter() {
+            if (i < text.length) {
+                textElement.innerHTML += text.charAt(i);
+                i++;
+                setTimeout(typeWriter, 30);
+            }
+        }
+
+        window.onload = typeWriter;
+    </script>
+</body>
+</html>

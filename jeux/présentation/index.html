@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Astralis Café</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+<meta property="og:title" content="Nom de votre site ou article" />
+
+<meta property="og:description" content="Une courte phrase qui explique ce qu'on trouve sur votre lien." />
+
+<meta property="og:image" content="https://votre-site.com/image-aperçu.jpg" />
+
+<meta property="og:url" content="https://votre-site.com" />
+
+<meta property="og:site_name" content="Mon Super Site" />
+<style>
+:root {
+    --accent-color: #D2691E;
+    --panel-dark: rgba(49, 41, 33, 0.85);
+}
+
+body, html {
+    margin:0; padding:0; overflow:hidden;
+    font-family: 'Poppins', sans-serif;
+    color:white;
+    background: url('background2.jpg') no-repeat center center fixed;
+    background-size: cover;
+}
+
+body::after {
+    content:"";
+    position:fixed;
+    inset:0;
+    background: rgba(0,0,0,0.35);
+    pointer-events:none;
+}
+
+#game-container {
+    width:100vw; height:100vh;
+    display:flex; flex-direction:column; align-items:center;
+}
+
+/* HUD */
+#info-panel {
+    position:absolute;
+    top:20px;
+    width:90%;
+    max-width:450px;
+    background: var(--panel-dark);
+    border:2px solid var(--accent-color);
+    border-radius:16px;
+    padding:15px;
+    backdrop-filter: blur(8px);
+    text-align:center;
+    box-shadow:0 0 30px rgba(210,105,30,0.4);
+}
+
+#character-sprite {
+    position:absolute;
+    bottom:0;
+    left:50%;
+    transform:translateX(-50%);
+    height:70vh;
+    animation: levitate 4s ease-in-out infinite;
+}
+
+@keyframes levitate {
+    0%,100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(-10px); }
+}
+
+/* Dialogue */
+#dialogue-box {
+    position:absolute;
+    bottom:30px;
+    width:92%;
+    max-width:850px;
+    min-height:130px;
+    background: linear-gradient(180deg, var(--panel-dark) 0%, rgba(30,30,30,1) 100%);
+    border-radius:15px;
+    border-left:6px solid var(--accent-color);
+    padding:25px 40px;
+    cursor:pointer;
+    box-shadow:0 15px 50px rgba(0,0,0,0.8);
+}
+
+#character-name {
+    position:absolute;
+    top:-18px;
+    left:30px;
+    background: var(--accent-color);
+    padding:4px 20px;
+    border-radius:6px;
+    font-weight:800;
+    font-size:0.9rem;
+}
+
+#choices-container {
+    position:absolute;
+    top:45%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    width:85%;
+    max-width:400px;
+    gap:12px;
+}
+
+.choice-btn {
+    background: var(--panel-dark);
+    padding:14px 24px;
+    border-radius:12px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+.choice-btn:hover {
+    background: var(--accent-color);
+}
+
+.typing-cursor {
+    display:inline-block;
+    width:8px;
+    height:1.1em;
+    background:var(--accent-color);
+    margin-left:5px;
+    animation: blink 0.8s infinite;
+}
+
+@keyframes blink {0%,100%{opacity:1}50%{opacity:0}}
+.hidden { display:none !important; }
+</style>
+</head>
+
+<body>
+
+<div id="game-container">
+    <div id="info-panel">
+        <h2 class="font-extrabold text-xl text-orange-400">ASTRALIS</h2>
+        <div class="text-sm text-gray-300">Espace communautaire</div>
+    </div>
+    
+    <img id="character-sprite" src="img.png">
+
+    <div id="choices-container" class="hidden flex flex-col"></div>
+
+    <div id="dialogue-box">
+        <div id="character-name">AIKO</div>
+        <div id="dialogue-text" class="text-lg"></div>
+    </div>
+</div>
+
+<audio id="bg-music" loop src="Taverne Café Sakura.mp3"></audio>
+<audio id="sfx-type" src="sound.mp3"></audio>
+<script>
+const dialogueText = document.getElementById('dialogue-text');
+const choicesContainer = document.getElementById('choices-container');
+const dialogueBox = document.getElementById('dialogue-box');
+
+const bgMusic = document.getElementById('bg-music');
+const sfxType = document.getElementById('sfx-type');
+
+bgMusic.volume = 0.25;
+bgMusic.play().catch(()=>document.body.onclick=()=>bgMusic.play());
+
+let currentIndex = 0;
+let isTyping=false;
+let inQuestionMode=false;
+
+function typeText(text, callback){
+    if(isTyping) return;
+    isTyping=true;
+    dialogueText.innerHTML="";
+    let i=0;
+
+    const t=setInterval(()=>{
+        dialogueText.innerHTML+=text.charAt(i);
+        sfxType.volume=0.05;
+        sfxType.currentTime=0;
+        sfxType.play();
+        i++;
+
+        if(i>=text.length){
+            clearInterval(t);
+            isTyping=false;
+            dialogueText.innerHTML+="<span class='typing-cursor'></span>";
+            if(callback) setTimeout(callback,600);
+        }
+    },25);
+}
+
+const script = [
+
+{ text:"Bienvenue sur Astralis. Ici c’est simple : tu entres, tu parles, tu deviens quelqu’un dans le serveur." },
+
+{ text:"Les gens discutent, jouent, lancent des vocaux. Si tu restes passif, tu passes à côté." },
+
+{ text:"Tu trouveras plusieurs espaces : un général actif, des vocaux, des sondages, des events et un système de rôles évolutif." },
+
+{ text:"Plus tu participes, plus tu montes. Ici l’activité compte vraiment." },
+
+{
+ text:"Tu comptes rester actif ?",
+ choices:[
+  {text:"Oui, je vais participer", next:"Parfait. Passe en général, rejoins un vocal, et fais-toi remarquer."},
+  {text:"Je regarde juste", next:"Observe si tu veux. Mais ceux qui parlent le plus deviennent les piliers ici."}
+ ]
+},
+
+{ text:"Bonne installation. Fais ta place." }
+
+];
+
+function update(){
+ const data = script[currentIndex];
+ if(!data) return;
+
+ if(data.choices){
+    choicesContainer.innerHTML="";
+    choicesContainer.classList.remove("hidden");
+    dialogueBox.style.pointerEvents="none";
+
+    data.choices.forEach(c=>{
+        const b=document.createElement("button");
+        b.className="choice-btn";
+        b.innerText=c.text;
+
+        b.onclick=e=>{
+            e.stopPropagation();
+            choicesContainer.classList.add("hidden");
+            dialogueBox.style.pointerEvents="auto";
+
+            typeText(c.next, ()=>{
+                currentIndex++;
+                if(currentIndex<script.length){
+                    update();
+                }else{
+                    startQuestions();
+                }
+            });
+        };
+
+        choicesContainer.appendChild(b);
+    });
+    
+ }
+
+ typeText(data.text);
+}
+
+function next(){
+ if(isTyping) return;
+ if(!choicesContainer.classList.contains("hidden")) return;
+
+ currentIndex++;
+
+ if(currentIndex<script.length){
+     update();
+ }else{
+     startQuestions();
+ }
+}
+
+dialogueBox.onclick=next;
+window.onload=update;
+
+
+
+
+
+/* =========================
+   MODE QUESTIONS EN BOUCLE
+========================= */
+
+function startQuestions(){
+    inQuestionMode=true;
+    showQuestions();
+}
+
+function showQuestions(){
+    choicesContainer.innerHTML="";
+    choicesContainer.classList.remove("hidden");
+
+    const questions=[
+        {
+            q:"Comment devenir actif ?",
+            a:"Parle en général. Rejoins les vocaux. Réponds aux gens. L’activité te rend visible ici."
+        },
+        {
+            q:"Comment monter en rôle ?",
+            a:"L’activité réelle. Messages, vocaux, présence. Ceux qui parlent montent."
+        },
+        {
+            q:"Il y a des events ?",
+            a:"Oui. Vocaux, jeux, sondages. Les actifs sont toujours au centre."
+        },
+        {
+            q:"Par où commencer ?",
+            a:"Dis bonjour en général. Puis vocal. L’intégration se fait en parlant."
+        }
+    ];
+
+    typeText("Tu peux me poser une question.");
+
+    questions.forEach(item=>{
+        const b=document.createElement("button");
+        b.className="choice-btn";
+        b.innerText=item.q;
+
+        b.onclick=e=>{
+            e.stopPropagation();
+            choicesContainer.classList.add("hidden");
+
+            typeText(item.a, ()=>{
+                showQuestions();
+            });
+        };
+
+        choicesContainer.appendChild(b);
+    });
+
+    // ===== BOUTON DECONNEXION =====
+    const logoutBtn = document.createElement("button");
+    logoutBtn.className = "choice-btn";
+    logoutBtn.style.marginTop = "18px";
+    logoutBtn.style.background = "#8b0000";
+    logoutBtn.innerText = "Déconnexion";
+
+    logoutBtn.onclick = (e)=>{
+        e.stopPropagation();
+
+        typeText("Déconnexion en cours...", ()=>{
+            // recharge la page (ou remplace par redirect Discord)
+            location.reload();
+
+            // si tu veux rediriger vers un lien :
+            // window.location.href = "https://discord.gg/TONSERVEUR";
+        });
+    };
+
+    choicesContainer.appendChild(logoutBtn);
+}
+</script>
+</body>
+</html>

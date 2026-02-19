@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Puissance 4 — Multijoueur</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #07080f; --surface: #0d0f1e; --border: #1a1d35;
+      --red: #ff3440; --yellow: #ffd600; --cyan: #00e5ff;
+      --muted: #3a3d5c; --text: #c8cce8; --font: 'Courier New', monospace;
+    }
+    html { background: var(--bg); }
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px 40px;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.07) 2px,rgba(0,0,0,.07) 4px);
+      pointer-events: none; z-index: 999;
+    }
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.75) 100%);
+      pointer-events: none; z-index: 998;
+    }
+
+    #title {
+      font-size: clamp(1.8rem, 6vw, 3.5rem);
+      font-weight: 900; letter-spacing: .22em;
+      background: linear-gradient(90deg, var(--red), var(--yellow), var(--red));
+      background-size: 200%;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      animation: shimmer 3s linear infinite;
+      text-align: center; margin-bottom: 4px;
+    }
+    #subtitle {
+      text-align: center; color: var(--muted);
+      font-size: .65rem; letter-spacing: .35em; margin-bottom: 28px;
+    }
+    #app { width: 100%; max-width: 500px; }
+
+    .screen { display: none; flex-direction: column; gap: 14px; }
+    .screen.active { display: flex; }
+
+    .inp {
+      background: var(--surface); border: 1px solid var(--border);
+      border-bottom: 2px solid var(--yellow); color: var(--yellow);
+      padding: 12px 16px; font-family: var(--font); font-size: .9rem;
+      letter-spacing: .1em; outline: none; width: 100%; transition: border-color .2s;
+    }
+    .inp:focus { border-bottom-color: var(--cyan); color: var(--cyan); }
+    .inp::placeholder { color: var(--muted); }
+    .row { display: flex; gap: 10px; }
+    .row .inp { flex: 1; }
+
+    .btn {
+      border: 2px solid; background: transparent;
+      font-family: var(--font); font-weight: 700; font-size: .85rem;
+      letter-spacing: .15em; padding: 12px 20px; cursor: pointer;
+      transition: all .15s; white-space: nowrap;
+    }
+    .btn.yellow { border-color: var(--yellow); color: var(--yellow); }
+    .btn.yellow:hover { background: var(--yellow); color: #000; box-shadow: 0 0 20px #ffd60066; }
+    .btn.cyan   { border-color: var(--cyan);   color: var(--cyan);   }
+    .btn.cyan:hover   { background: var(--cyan);   color: #000; box-shadow: 0 0 20px #00e5ff66; }
+    .btn.red    { border-color: var(--red);    color: var(--red);    }
+    .btn.red:hover    { background: var(--red);    color: #fff; box-shadow: 0 0 20px #ff344066; }
+    .btn.full { width: 100%; }
+
+    .error {
+      color: var(--red); font-size: .82rem; text-align: center;
+      letter-spacing: .1em; min-height: 20px; animation: shake .4s ease;
+    }
+
+    /* LOBBY */
+    .lobby-box { border: 1px solid var(--border); background: var(--surface); padding: 28px 24px; text-align: center; }
+    .room-code { font-size: 2.8rem; font-weight: 900; letter-spacing: .5em; color: var(--yellow); animation: blink 2s infinite; margin: 8px 0 20px; }
+    .players-row { display: flex; justify-content: center; align-items: center; gap: 24px; }
+    .player-slot { text-align: center; }
+    .player-avatar { width: 50px; height: 50px; border-radius: 50%; margin: 0 auto 8px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; }
+    .player-name { font-size: .75rem; letter-spacing: .1em; max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .vs { color: var(--muted); font-size: 1.3rem; font-weight: 700; }
+    .waiting { color: var(--muted); font-size: .75rem; letter-spacing: .2em; margin-top: 18px; animation: blink 1.5s infinite; }
+
+    /* GAME */
+    .scoreboard { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .player-tag { display: flex; align-items: center; gap: 8px; transition: opacity .3s; }
+    .player-tag.inactive { opacity: .3; }
+    .tag-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .tag-name { font-size: .78rem; font-weight: 700; letter-spacing: .1em; }
+
+    #status {
+      text-align: center; font-size: .88rem; font-weight: 700;
+      letter-spacing: .15em; margin-bottom: 12px; min-height: 20px; transition: color .3s;
+    }
+
+    /* BOARD */
+    #board-wrap {
+      background: #08142a; border: 3px solid #0e1f42; border-radius: 8px;
+      padding: 8px;
+      box-shadow: 0 0 50px rgba(0,80,200,.25), inset 0 0 25px rgba(0,0,0,.5);
+      width: 100%;
+    }
+    #drop-indicators { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; margin-bottom: 5px; }
+    .drop-dot { height: 7px; border-radius: 4px; background: transparent; transition: background .15s; }
+    #board { display: grid; grid-template-columns: repeat(7,1fr); gap: 5px; }
+    .cell {
+      aspect-ratio: 1; border-radius: 50%;
+      border: 2px solid #0e1f42; background: #04080e;
+      cursor: pointer; transition: background .12s, box-shadow .12s;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,.6);
+    }
+    .cell.p1 { background: var(--red); border-color: #ff344066; box-shadow: 0 0 12px #ff344099, inset 0 -3px 6px rgba(0,0,0,.4); animation: drop .22s ease; }
+    .cell.p2 { background: var(--yellow); border-color: #ffd60066; box-shadow: 0 0 12px #ffd60099, inset 0 -3px 6px rgba(0,0,0,.4); animation: drop .22s ease; }
+    .cell.win { animation: pulse .35s ease infinite alternate; }
+
+    #actions { display: flex; gap: 10px; margin-top: 12px; }
+
+    @keyframes shimmer  { 0%{background-position:0%}   100%{background-position:200%} }
+    @keyframes blink    { 0%,100%{opacity:1} 50%{opacity:.3} }
+    @keyframes drop     { 0%{transform:translateY(-30px);opacity:0} 100%{transform:translateY(0);opacity:1} }
+    @keyframes pulse    { from{filter:brightness(1)} to{filter:brightness(1.8)} }
+    @keyframes shake    { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-7px)} 75%{transform:translateX(7px)} }
+    @keyframes pulseTxt { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+  </style>
+</head>
+<body>
+<div id="title">PUISSANCE 4</div>
+<div id="subtitle">MULTIJOUEUR EN LIGNE</div>
+<div id="app">
+
+  <!-- MENU -->
+  <div id="screen-menu" class="screen active">
+    <input id="inp-name" class="inp" placeholder="TON PSEUDO" maxlength="16" autocomplete="off" />
+    <button class="btn yellow full" onclick="createRoom()">► CRÉER UN SALON</button>
+    <div class="row">
+      <input id="inp-code" class="inp" placeholder="CODE SALON" maxlength="6" style="letter-spacing:.3em;text-transform:uppercase" autocomplete="off" />
+      <button class="btn cyan" onclick="joinRoom()">JOIN</button>
+    </div>
+    <div id="menu-error" class="error"></div>
+  </div>
+
+  <!-- LOBBY -->
+  <div id="screen-lobby" class="screen">
+    <div class="lobby-box">
+      <div style="color:var(--muted);font-size:.72rem;letter-spacing:.25em">CODE DU SALON</div>
+      <div class="room-code" id="lobby-code">——</div>
+      <div style="color:var(--muted);font-size:.72rem;margin-bottom:20px">Partage ce code avec ton adversaire</div>
+      <div class="players-row">
+        <div class="player-slot">
+          <div class="player-avatar" id="av1" style="background:var(--red);color:#000">P1</div>
+          <div class="player-name" id="pn1" style="color:var(--red)">...</div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="player-slot">
+          <div class="player-avatar" id="av2" style="background:#111;border:2px solid var(--muted);color:var(--muted)">?</div>
+          <div class="player-name" id="pn2" style="color:var(--muted)">...</div>
+        </div>
+      </div>
+      <div class="waiting" id="lobby-waiting">En attente d'un adversaire…</div>
+    </div>
+    <button class="btn red full" onclick="goHome()">ANNULER</button>
+  </div>
+
+  <!-- GAME -->
+  <div id="screen-game" class="screen">
+    <div class="scoreboard">
+      <div class="player-tag" id="tag1">
+        <div class="tag-dot" style="background:var(--red);box-shadow:0 0 8px var(--red)"></div>
+        <span class="tag-name" id="tag1-name" style="color:var(--red)">J1</span>
+      </div>
+      <div class="player-tag" id="tag2">
+        <span class="tag-name" id="tag2-name" style="color:var(--yellow)">J2</span>
+        <div class="tag-dot" style="background:var(--yellow);box-shadow:0 0 8px var(--yellow)"></div>
+      </div>
+    </div>
+    <div id="status">—</div>
+    <div id="board-wrap">
+      <div id="drop-indicators"></div>
+      <div id="board"></div>
+    </div>
+    <div id="actions"></div>
+  </div>
+
+</div>
+<script>
+// ══ CONFIG ══
+const SUPABASE_URL     = 'https://mkyrhafbsmhyktkjjeoi.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_chgNcjaLvZOho5tezPbA8A_Yoq1PyqF'
+const { createClient } = supabase
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+// ══ STATE ══
+let state = {
+  screen: 'menu', playerId: null, myNum: null,
+  roomId: null, room: null, pollTimer: null, hoverCol: null
+}
+
+// ══ UTILS ══
+function genId(len=6) { return Math.random().toString(36).slice(2, 2+len).toUpperCase() }
+function emptyBoard() { return Array(6).fill(null).map(() => Array(7).fill(null)) }
+function parseBoard(b) { return typeof b === 'string' ? JSON.parse(b) : b }
+
+function dropPiece(board, col, player) {
+  for (let r = 5; r >= 0; r--) {
+    if (!board[r][col]) {
+      const nb = board.map(row => [...row])
+      nb[r][col] = player
+      return { board: nb, row: r }
+    }
+  }
+  return null
+}
+
+function checkWinner(board, row, col, player) {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]]
+  for (const [dr,dc] of dirs) {
+    let n = 1
+    for (let d=1;d<4;d++){const r=row+dr*d,c=col+dc*d; if(r>=0&&r<6&&c>=0&&c<7&&board[r][c]===player)n++;else break}
+    for (let d=1;d<4;d++){const r=row-dr*d,c=col-dc*d; if(r>=0&&r<6&&c>=0&&c<7&&board[r][c]===player)n++;else break}
+    if (n >= 4) return true
+  }
+  return false
+}
+
+function getWinCells(board, player) {
+  const dirs = [[0,1],[1,0],[1,1],[1,-1]]
+  for (let r=0;r<6;r++) for (let c=0;c<7;c++) {
+    if (board[r][c] !== player) continue
+    for (const [dr,dc] of dirs) {
+      const cells = [[r,c]]
+      for (let d=1;d<4;d++){const nr=r+dr*d,nc=c+dc*d; if(nr>=0&&nr<6&&nc>=0&&nc<7&&board[nr][nc]===player)cells.push([nr,nc]);else break}
+      if (cells.length>=4) return cells
+    }
+  }
+  return []
+}
+
+// ══ POLLING ══ (fiable, fonctionne sans config Realtime)
+function startPolling() {
+  stopPolling()
+  state.pollTimer = setInterval(async () => {
+    if (!state.roomId) return
+    const { data, error } = await sb.from('rooms').select('*').eq('id', state.roomId).single()
+    if (error || !data) return
+    const prev = state.room
+    state.room = data
+
+    if (state.screen === 'lobby') {
+      // Mettre à jour l'avatar P2 dans le lobby
+      if (data.player2_name) {
+        document.getElementById('pn2').textContent = data.player2_name
+        document.getElementById('av2').textContent = 'P2'
+        document.getElementById('av2').style.background = 'var(--yellow)'
+        document.getElementById('av2').style.color = '#000'
+        document.getElementById('lobby-waiting').style.display = 'none'
+      }
+      // Transition vers la partie
+      if (data.player2_id) {
+        stopPolling()
+        showScreen('game')
+        startPolling()
+        return
+      }
+    }
+
+    if (state.screen === 'game') {
+      renderGame()
+    }
+  }, 1000)
+}
+
+function stopPolling() {
+  if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null }
+}
+
+// ══ ACTIONS ══
+async function createRoom() {
+  const name = document.getElementById('inp-name').value.trim()
+  if (!name) return showError('Entre ton pseudo !')
+  setError('')
+
+  const roomId   = genId()
+  const playerId = genId()
+
+  const { error } = await sb.from('rooms').insert({
+    id: roomId, player1_id: playerId, player1_name: name,
+    board: JSON.stringify(emptyBoard()), turn: 1,
+  })
+
+  if (error) {
+    console.error('INSERT error:', error)
+    return showError('Erreur: ' + (error.message || JSON.stringify(error)))
+  }
+
+  state.playerId = playerId; state.myNum = 1; state.roomId = roomId
+  const { data } = await sb.from('rooms').select('*').eq('id', roomId).single()
+  state.room = data
+
+  document.getElementById('lobby-code').textContent = roomId
+  document.getElementById('pn1').textContent = name
+  showScreen('lobby')
+  startPolling()
+}
+
+async function joinRoom() {
+  const name = document.getElementById('inp-name').value.trim()
+  const code = document.getElementById('inp-code').value.trim().toUpperCase()
+  if (!name) return showError('Entre ton pseudo !')
+  if (!code) return showError('Entre un code salon !')
+  setError('')
+
+  const { data: room, error } = await sb.from('rooms').select('*').eq('id', code).single()
+  if (error || !room) return showError('Salon introuvable !')
+  if (room.player2_id) return showError('Salon complet !')
+
+  const playerId = genId()
+  const { error: updErr } = await sb.from('rooms').update({
+    player2_id: playerId, player2_name: name
+  }).eq('id', code)
+  if (updErr) return showError('Erreur: ' + (updErr.message || JSON.stringify(updErr)))
+
+  state.playerId = playerId; state.myNum = 2; state.roomId = code
+  const { data: updated } = await sb.from('rooms').select('*').eq('id', code).single()
+  state.room = updated
+
+  showScreen('game')
+  startPolling()
+}
+
+async function playMove(col) {
+  const { room, myNum } = state
+  if (!room || room.winner || room.draw) return
+  if (room.turn !== myNum) return
+
+  const board = parseBoard(room.board)
+  const result = dropPiece(board, col, myNum)
+  if (!result) return
+
+  const won  = checkWinner(result.board, result.row, col, myNum)
+  const draw = !won && result.board[0].every(c => c !== null)
+
+  // Optimistic update
+  state.room = { ...room, board: JSON.stringify(result.board), turn: myNum===1?2:1, winner: won?myNum:null, draw }
+  renderGame()
+
+  await sb.from('rooms').update({
+    board: JSON.stringify(result.board),
+    turn: myNum===1?2:1,
+    winner: won ? myNum : null,
+    draw,
+  }).eq('id', state.roomId)
+}
+
+async function resetGame() {
+  await sb.from('rooms').update({
+    board: JSON.stringify(emptyBoard()), turn: 1, winner: null, draw: false
+  }).eq('id', state.roomId)
+}
+
+function goHome() {
+  stopPolling()
+  state = { screen:'menu', playerId:null, myNum:null, roomId:null, room:null, pollTimer:null, hoverCol:null }
+  document.getElementById('inp-name').value = ''
+  document.getElementById('inp-code').value = ''
+  setError('')
+  showScreen('menu')
+}
+
+// ══ RENDER ══
+function buildBoardDOM() {
+  const indic = document.getElementById('drop-indicators')
+  indic.innerHTML = ''
+  for (let c=0;c<7;c++) {
+    const d = document.createElement('div')
+    d.className = 'drop-dot'; d.id = 'ind-'+c
+    indic.appendChild(d)
+  }
+  const boardEl = document.getElementById('board')
+  boardEl.innerHTML = ''
+  for (let r=0;r<6;r++) for (let c=0;c<7;c++) {
+    const cell = document.createElement('div')
+    cell.className = 'cell'; cell.id = `cell-${r}-${c}`
+    cell.addEventListener('click',      () => playMove(c))
+    cell.addEventListener('mouseenter', () => setHover(c))
+    cell.addEventListener('mouseleave', () => setHover(null))
+    boardEl.appendChild(cell)
+  }
+}
+
+function setHover(col) {
+  state.hoverCol = col
+  const canPlay = state.room && !state.room.winner && !state.room.draw && state.room.turn === state.myNum
+  for (let c=0;c<7;c++) {
+    const d = document.getElementById('ind-'+c)
+    if (!d) continue
+    d.style.background = (col===c && canPlay) ? (state.myNum===1?'var(--red)':'var(--yellow)') : 'transparent'
+  }
+}
+
+function renderGame() {
+  const { room, myNum } = state
+  if (!room) return
+
+  document.getElementById('tag1-name').textContent = room.player1_name || 'J1'
+  document.getElementById('tag2-name').textContent = room.player2_name || 'J2'
+  document.getElementById('tag1').classList.toggle('inactive', room.turn!==1 && !room.winner && !room.draw)
+  document.getElementById('tag2').classList.toggle('inactive', room.turn!==2 && !room.winner && !room.draw)
+
+  const statusEl = document.getElementById('status')
+  let txt = '', color = 'var(--text)'
+
+  if (room.winner) {
+    const wName = room.winner===1 ? room.player1_name : room.player2_name
+    txt   = room.winner===myNum ? '🎉 TU AS GAGNÉ !' : `${wName} A GAGNÉ`
+    color = room.winner===myNum ? 'var(--yellow)' : 'var(--red)'
+  } else if (room.draw) {
+    txt = 'MATCH NUL !'; color = 'var(--muted)'
+  } else if (!myNum) {
+    txt = `TOUR DE ${room.turn===1?room.player1_name:room.player2_name}`
+  } else if (room.turn === myNum) {
+    txt = 'TON TOUR !'; color = 'var(--cyan)'
+  } else {
+    txt = `TOUR DE ${room.turn===1?room.player1_name:room.player2_name}…`; color = 'var(--muted)'
+  }
+  statusEl.textContent = txt; statusEl.style.color = color
+
+  const board   = parseBoard(room.board)
+  const winCells = room.winner ? getWinCells(board, room.winner) : []
+  const winSet   = new Set(winCells.map(([r,c])=>`${r}-${c}`))
+
+  for (let r=0;r<6;r++) for (let c=0;c<7;c++) {
+    const cell = document.getElementById(`cell-${r}-${c}`)
+    if (!cell) continue
+    const v = board[r][c]
+    cell.className = 'cell'
+    if (v===1) cell.classList.add('p1')
+    if (v===2) cell.classList.add('p2')
+    if (winSet.has(`${r}-${c}`)) cell.classList.add('win')
+  }
+
+  setHover(state.hoverCol)
+
+  const actions = document.getElementById('actions')
+  actions.innerHTML = ''
+  if (myNum && (room.winner || room.draw)) {
+    const b = document.createElement('button')
+    b.className='btn cyan'; b.style.flex='1'; b.textContent='↺ REJOUER'; b.onclick=resetGame
+    actions.appendChild(b)
+  }
+  if (myNum) {
+    const b = document.createElement('button')
+    b.className='btn red'; b.style.flex='1'; b.textContent='⌂ MENU'; b.onclick=goHome
+    actions.appendChild(b)
+  }
+}
+
+// ══ NAV ══
+function showScreen(name) {
+  state.screen = name
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'))
+  document.getElementById('screen-'+name).classList.add('active')
+  if (name==='game') { buildBoardDOM(); renderGame() }
+}
+
+function showError(msg) {
+  const el = document.getElementById('menu-error')
+  el.textContent = msg; el.style.animation='none'
+  requestAnimationFrame(() => { el.style.animation='shake .4s ease' })
+}
+function setError(msg) { document.getElementById('menu-error').textContent = msg }
+
+// ══ INIT ══
+document.getElementById('inp-name').addEventListener('keydown', e => { if(e.key==='Enter') createRoom() })
+document.getElementById('inp-code').addEventListener('keydown', e => { if(e.key==='Enter') joinRoom() })
+document.getElementById('inp-code').addEventListener('input',   e => { e.target.value = e.target.value.toUpperCase() })
+</script>
+</body>
+</html>
